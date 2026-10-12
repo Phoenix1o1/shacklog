@@ -1,0 +1,20 @@
+{# Candidates to link; each row posts to links.add #}
+{% if items %}
+<ul class="picker-results">
+  {% for item in items %}
+  <li>
+    <span>{{ item.display_name() }}</span>
+    <form method="post" action="{{ url_for('links.add') }}" class="inline-form">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="a_type" value="{{ a_type }}">
+      <input type="hidden" name="a_id" value="{{ a_id }}">
+      <input type="hidden" name="b_type" value="{{ entity }}">
+      <input type="hidden" name="b_id" value="{{ item.id }}">
+      <button class="btn btn-small">Link</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Nothing found.</p>
+{% endif %}

@@ -1,0 +1,125 @@
+{#
+  Filter bar for list pages.
+    filters  – list[filters.Filter]
+    fchoices – dict name -> choices (filters.resolve_filter_choices)
+    fresult  – filters.FilterResult (for active chips and errors)
+    saved    – list[SavedFilter] for this section
+    target   – entity name used when saving a filter ("qso", "repeater"…)
+#}
+
+{% macro filter_input(f, fchoices) %}
+{% set value = request.args.get(f.name, '') %}
+<div class="filter filter-{{ f.kind }}">
+  <label for="flt-{{ f.name }}">{{ f.label }}</label>
+  {% if f.kind in ('choice', 'ref') %}
+    <select id="flt-{{ f.name }}" name="{{ f.name }}">
+      <option value="">Any</option>
+      {% for v, l in fchoices.get(f.name, []) %}
+      <option value="{{ v }}" {% if v|string == value %}selected{% endif %}>{{ l }}</option>
+      {% endfor %}
+    </select>
+  {% elif f.kind == 'has' %}
+    <select id="flt-{{ f.name }}" name="{{ f.name }}">
+      <option value="">Any</option>
+      <option value="yes" {% if value == 'yes' %}selected{% endif %}>Yes</option>
+      <option value="no" {% if value == 'no' %}selected{% endif %}>No</option>
+    </select>
+  {% elif f.kind in ('date_from', 'date_to') %}
+    <input id="flt-{{ f.name }}" type="date" name="{{ f.name }}" value="{{ value }}">
+  {% elif f.kind == 'near' %}
+    <div class="near-pair">
+      <input id="flt-{{ f.name }}" name="{{ f.name }}" value="{{ value }}" list="dl-{{ f.name }}"
+             placeholder="{{ f.placeholder or 'Station, locator or lat,lon' }}" autocomplete="off">
+      <datalist id="dl-{{ f.name }}">
+        {% for name, loc in fchoices.get(f.name, []) %}<option value="{{ name }}">{{ loc }}</option>{% endfor %}
+      </datalist>
+      <input name="radius" value="{{ request.args.get('radius', '') }}" inputmode="decimal" placeholder="km" aria-label="Radius in km" class="radius">
+    </div>
+  {% elif f.kind in ('min', 'max') %}
+    <input id="flt-{{ f.name }}" name="{{ f.name }}" value="{{ value }}" inputmode="decimal" placeholder="{{ f.placeholder or '' }}">
+  {% elif f.kind == 'bbox' %}
+    {# set from the map only; carried as hidden #}
+    <input type="hidden" name="{{ f.name }}" value="{{ value }}">
+  {% else %}
+    <input id="flt-{{ f.name }}" name="{{ f.name }}" value="{{ value }}" placeholder="{{ f.placeholder or '' }}"
+           {% if f.kind == 'call' %}autocapitalize="characters" spellcheck="false" autocomplete="off"{% endif %}>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro filter_bar(filters, fchoices, fresult, saved=[], target='') %}
+{% set basic = filters|rejectattr('advanced')|rejectattr('kind', 'equalto', 'bbox')|list %}
+{% set advanced = filters|selectattr('advanced')|list %}
+{% set active_names = fresult.active|map(attribute=0)|list %}
+<form class="filterbar" method="get" action="{{ url_for(request.endpoint, **(request.view_args or {})) }}">
+  {% if request.args.get('sort') %}<input type="hidden" name="sort" value="{{ request.args.get('sort') }}">{% endif %}
+  {% if request.args.get('dir') %}<input type="hidden" name="dir" value="{{ request.args.get('dir') }}">{% endif %}
+  {% for f in filters if f.kind == 'bbox' %}{{ filter_input(f, fchoices) }}{% endfor %}
+  <div class="filter-row">
+    {% for f in basic %}{{ filter_input(f, fchoices) }}{% endfor %}
+  </div>
+  {% if advanced %}
+  <details class="more-filters" {% if advanced|selectattr('name', 'in', active_names)|list %}open{% endif %}>
+    <summary>More filters</summary>
+    <div class="filter-row">
+      {% for f in advanced %}{{ filter_input(f, fchoices) }}{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Filter</button>
+    {% if fresult.active %}<a class="btn btn-quiet" href="{{ url_for(request.endpoint, **(request.view_args or {})) }}">Clear</a>{% endif %}
+  </div>
+</form>
+
+{% if fresult.errors %}
+<div class="flash flash-error">{% for e in fresult.errors %}<p>{{ e }}</p>{% endfor %}</div>
+{% endif %}
+
+<div class="chips-row">
+  {% if fresult.active %}
+  <ul class="chips" aria-label="Active filters">
+    {% for name, label, shown in fresult.active %}
+    <li class="chip"><span>{{ label }}: <b>{{ shown }}</b></span>
+      <a href="{{ url_with(**{name: None, 'radius': None} if name == 'near' else {name: None}) }}" aria-label="Remove filter {{ label }}">×</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if target %}
+  <details class="saved-filters">
+    <summary>Saved filters{% if saved %} ({{ saved|length }}){% endif %}</summary>
+    <div class="saved-panel">
+      {% for sf in saved %}
+      <div class="saved-item">
+        <a href="{{ url_for(request.endpoint) }}?{{ sf.query }}">{{ sf.name }}</a>
+        <form method="post" action="{{ url_for('main.delete_saved_filter', record_id=sf.id) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="back" value="{{ request.full_path }}">
+          <button class="linklike danger" aria-label="Delete saved filter {{ sf.name }}">Remove</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="muted">None yet for this list.</p>
+      {% endfor %}
+      {% if fresult.active %}
+      <form method="post" action="{{ url_for('main.save_filter') }}" class="save-filter">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="target" value="{{ target }}">
+        <input type="hidden" name="query" value="{{ query_string() }}">
+        <input type="hidden" name="back" value="{{ request.full_path }}">
+        <input name="name" placeholder="Name this filter" required aria-label="Filter name">
+        <button class="btn">Save current filter</button>
+      </form>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro sort_th(key, label, sort_key, sort_dir, cls='') %}
+{% set next_dir = 'asc' if (sort_key == key and sort_dir == 'desc') else 'desc' %}
+<th class="{{ cls }}" {% if sort_key == key %}aria-sort="{{ 'descending' if sort_dir == 'desc' else 'ascending' }}"{% endif %}>
+  <a href="{{ url_with(sort=key, dir=next_dir) }}">{{ label }}{% if sort_key == key %}<span class="sort-arrow" aria-hidden="true">{{ '↓' if sort_dir == 'desc' else '↑' }}</span>{% endif %}</a>
+</th>
+{% endmacro %}

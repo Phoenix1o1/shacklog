@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Build output (PyInstaller)
+build/
+dist/
+*.spec.bak
+
+# Runtime data — never commit a logbook or its files
+ShackLogData/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+secret.key
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

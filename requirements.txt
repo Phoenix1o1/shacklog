@@ -1,0 +1,5 @@
+flask>=3.0
+sqlalchemy>=2.0
+waitress>=3.0
+platformdirs>=4.0
+pypdf>=4.0

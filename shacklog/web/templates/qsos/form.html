@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_sections, csrf %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+<form method="post" class="record-form">
+  {{ csrf() }}
+  {% if errors %}<p class="flash flash-error" role="alert">Check the highlighted fields.</p>{% endif %}
+  <div id="call-hint" class="hint-box" aria-live="polite"></div>
+  {{ render_sections(sections, values, errors, choices) }}
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{{ 'Save' if qso else 'Log QSO' }}</button>
+    {% if not qso %}<button class="btn" type="submit" name="again" value="1">Log and start another</button>{% endif %}
+    <a class="btn btn-quiet" href="{{ url_for('qsos.view', record_id=qso.id) if qso else url_for('qsos.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

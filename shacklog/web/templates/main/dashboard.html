@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% call page_head(app_name, 'Station ' ~ (default_station.name if default_station else 'not set') ~ (' · ' ~ default_station.callsign if default_station and default_station.callsign else '')) %}
+  <a class="btn btn-primary" href="{{ url_for('qsos.new') }}">Log QSO</a>
+  <a class="btn" href="{{ url_for('swl.new') }}">Log something heard</a>
+  <a class="btn" href="{{ url_for('journal.new') }}">Journal entry</a>
+  <a class="btn" href="{{ url_for('files.upload') }}">Add to library</a>
+{% endcall %}
+
+<div class="dash">
+  <section class="panel wide">
+    <ul class="tally">
+      <li><b>{{ tally.qsos }}</b><span>QSOs</span></li>
+      <li><b>{{ tally.qsos_year }}</b><span>this year</span></li>
+      <li><b>{{ tally.calls }}</b><span>different callsigns</span></li>
+      <li><b>{{ tally.swl }}</b><span>heard</span></li>
+      <li><b>{{ tally.journal }}</b><span>journal entries</span></li>
+      <li><b>{{ tally.repeaters }}</b><span>repeaters</span></li>
+      <li><b>{{ tally.files }}</b><span>library files</span></li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Latest QSOs</h2>
+    {% if recent_qsos %}
+    <table class="ledger">
+      <tbody>
+      {% for q in recent_qsos %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.call }}</a></td>
+        <td class="num" data-label="UTC">{{ q.time_on|dt }}</td>
+        <td data-label="Mode">{{ q.band or '' }} {{ display_mode(q.mode, q.submode) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p><a href="{{ url_for('qsos.index') }}">Whole log</a></p>
+    {% else %}
+    <p class="muted">Nothing logged yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Recently heard</h2>
+    {% if recent_swl %}
+    <ul class="linked-list">
+      {% for e in recent_swl %}
+      <li><a href="{{ url_for('swl.view', record_id=e.id) }}">{{ e.heard or e.category }}</a>
+        <span class="muted">{{ e.time_utc|dt }} · {{ e.freq_mhz|freq }} MHz</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">The listening log is empty. Log stations heard on the SDR or the handheld.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Journal</h2>
+    {% if recent_journal %}
+    <ul class="linked-list">
+      {% for j in recent_journal %}
+      <li><span class="linked-kind">{{ 'Test' if j.kind == 'test' else 'Diary' }}</span>
+        <a href="{{ url_for('journal.view', record_id=j.id) }}">{{ j.title }}</a>
+        <span class="muted">{{ j.time_utc|day }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No journal entries yet. Record antenna builds, SWR readings and station changes here.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Stations</h2>
+    <ul class="linked-list">
+      {% for st in stations %}
+      <li><span class="linked-kind">{{ st.kind|label(M.STATION_KINDS) }}</span>
+        <a href="{{ url_for('stations.view', record_id=st.id) }}">{{ st.name }}</a>
+        <span class="muted">{{ st.locator or '' }}</span></li>
+      {% else %}
+      <li class="muted">No stations yet.</li>
+      {% endfor %}
+    </ul>
+    <p><a href="{{ url_for('stations.new') }}">Add a station</a></p>
+  </section>
+</div>
+{% endblock %}

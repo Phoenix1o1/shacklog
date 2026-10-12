@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_forms.html" import csrf %}
+{% block title %}Import ADIF{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import ADIF</h1></div>
+<div class="panel prose">
+  <p>Bring in QSOs from another logger (Wavelog, QLog, HAMRS, LoTW downloads…). Fields
+     ShackLog doesn't use are kept with each QSO, so exporting again loses nothing.</p>
+  <p>QSOs already in the log (same call, band, mode and start time within two minutes)
+     are skipped. A backup of the database is made first.</p>
+</div>
+<form method="post" enctype="multipart/form-data" class="record-form">
+  {{ csrf() }}
+  <fieldset class="form-section">
+    <div class="grid">
+      <div class="field w-full"><label for="file">ADIF file (.adi)</label>
+        <input id="file" type="file" name="file" accept=".adi,.adif,.txt" required></div>
+      <div class="field w-full"><label for="station_id">Assign to station</label>
+        <select id="station_id" name="station_id">
+          <option value="">Match by STATION_CALLSIGN / MY_GRIDSQUARE, else none</option>
+          {% for value, label in stations %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="field-help">The station's call and position are recorded with each QSO when the file doesn't carry them.</p>
+      </div>
+    </div>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn-primary">Import</button>
+    <a class="btn btn-quiet" href="{{ url_for('qsos.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

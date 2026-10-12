@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_forms.html" import csrf %}
+{% block title %}Welcome{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Set up {{ app_name }}</h1>
+    <p class="subtitle">A few details so distances, exports and new entries start right. Everything can be changed later.</p>
+  </div>
+</div>
+{% for e in errors %}<p class="flash flash-error">{{ e }}</p>{% endfor %}
+<form method="post" class="record-form">
+  {{ csrf() }}
+  <fieldset class="form-section">
+    <legend>This computer</legend>
+    <div class="grid">
+      <div class="field w-half"><label for="instance_name">Name of this instance</label>
+        <input id="instance_name" name="instance_name" value="{{ form.get('instance_name', instance_name) }}">
+        <p class="field-help">Shown in sync and conflict reports, e.g. “Desktop”, “Laptop”, “Proxmox”.</p></div>
+      <div class="field w-half"><label for="callsign">My callsign</label>
+        <input id="callsign" name="callsign" class="t-upper" autocapitalize="characters" value="{{ form.get('callsign', '') }}" placeholder="IU2…"></div>
+    </div>
+  </fieldset>
+  <fieldset class="form-section">
+    <legend>Home station</legend>
+    <p class="section-note">The default reference point for “distance from home”.</p>
+    <div class="grid">
+      <div class="field w-half"><label for="home_name">Name</label>
+        <input id="home_name" name="home_name" value="{{ form.get('home_name', 'Home') }}"></div>
+      <div class="field w-half"><label for="home_position">Locator or coordinates</label>
+        <input id="home_position" name="home_position" value="{{ form.get('home_position', '') }}" placeholder="JN45ol or 45.464, 9.190"></div>
+    </div>
+  </fieldset>
+  <fieldset class="form-section">
+    <legend>Second fixed location (optional)</legend>
+    <div class="grid">
+      <div class="field w-half"><label for="fixed_name">Name</label>
+        <input id="fixed_name" name="fixed_name" value="{{ form.get('fixed_name', '') }}" placeholder="e.g. Grenoble"></div>
+      <div class="field w-half"><label for="fixed_position">Locator or coordinates</label>
+        <input id="fixed_position" name="fixed_position" value="{{ form.get('fixed_position', '') }}" placeholder="JN25…"></div>
+    </div>
+  </fieldset>
+  {% if mode == 'desktop' %}
+  <details class="form-section form-section-collapsed">
+    <summary>Password (optional on this computer)</summary>
+    <div class="grid">
+      <div class="field w-half"><label for="password">Password</label>
+        <input id="password" type="password" name="password" autocomplete="new-password" minlength="8"></div>
+      <div class="field w-half field-bool"><label><input type="checkbox" name="require_login_local" value="1"> Ask for it on this computer too</label></div>
+    </div>
+  </details>
+  {% endif %}
+  <div class="form-actions"><button class="btn btn-primary">Start using {{ app_name }}</button></div>
+</form>
+{% endblock %}

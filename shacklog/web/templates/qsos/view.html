@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ qso.call }}{% endblock %}
+{% block content %}
+{% call page_head(qso.call, (qso.time_on|dt) ~ ' UTC · ' ~ (qso.freq_mhz|freq) ~ ' MHz · ' ~ display_mode(qso.mode, qso.submode)) %}
+  <a class="btn btn-primary" href="{{ url_for('qsos.edit', record_id=qso.id) }}">Edit</a>
+  <a class="btn" href="{{ url_for('qsos.new', **{'from': qso.id}) }}">Log another like this</a>
+  <a class="btn btn-quiet" href="{{ url_for('contacts.callsign', call=qso.call) }}">All about {{ qso.call }}</a>
+  {{ delete_button(url_for('qsos.delete', record_id=qso.id), 'this QSO') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Contact</h2>
+      {{ facts([
+        ('Name', qso.name), ('QTH', qso.qth), ('Locator', qso.locator),
+        ('Country', qso.country), ('Region', qso.region),
+        ('Band', qso.band), ('TX frequency', (qso.freq_mhz|freq ~ ' MHz') if qso.freq_mhz else None),
+        ('RX frequency', (qso.freq_rx_mhz|freq ~ ' MHz') if qso.freq_rx_mhz else None),
+        ('RST sent', qso.rst_sent), ('RST received', qso.rst_rcvd),
+        ('End', (qso.time_off|dt ~ ' UTC') if qso.time_off else None),
+        ('Distance', qso.distance_km|km), ('Bearing', qso.bearing_deg|bearing),
+      ]) }}
+    </section>
+
+    <section class="panel">
+      <h2>Path & my station</h2>
+      {% set rpt = qso.repeater %}
+      {{ facts([
+        ('Via', rpt.display_name() if rpt else None),
+        ('Propagation', qso.prop_mode|label(PROP_MODES) if qso.prop_mode else None),
+        ('Satellite', ((qso.sat_name or '') ~ ' ' ~ (qso.sat_mode or ''))|trim),
+        ('Station', qso.station.name if qso.station else None),
+        ('My call', qso.my_call), ('My locator', qso.my_locator),
+        ('Radio', qso.radio.name if qso.radio else None),
+        ('Antenna', qso.antenna.name if qso.antenna else None),
+        ('Power', (qso.tx_power_w|string ~ ' W') if qso.tx_power_w else None),
+        ('Operator', qso.operator),
+      ]) }}
+      {% if rpt %}<p class="small"><a href="{{ url_for('repeaters.view', record_id=rpt.id) }}">Open repeater {{ rpt.name }}</a></p>{% endif %}
+    </section>
+
+    {% if qso.qsl_sent or qso.qsl_rcvd or qso.lotw_sent or qso.lotw_rcvd or qso.eqsl_sent or qso.eqsl_rcvd or qso.sota_ref or qso.pota_ref or qso.wwff_ref or qso.my_sota_ref or qso.my_pota_ref or qso.contest_id %}
+    <section class="panel">
+      <h2>QSL & activities</h2>
+      {{ facts([
+        ('QSL sent', qso.qsl_sent|label(QSL_STATUS) if qso.qsl_sent else None),
+        ('QSL received', qso.qsl_rcvd|label(QSL_STATUS) if qso.qsl_rcvd else None),
+        ('QSL via', qso.qsl_via),
+        ('LoTW', ((qso.lotw_sent or '–') ~ ' / ' ~ (qso.lotw_rcvd or '–')) if (qso.lotw_sent or qso.lotw_rcvd) else None),
+        ('eQSL', ((qso.eqsl_sent or '–') ~ ' / ' ~ (qso.eqsl_rcvd or '–')) if (qso.eqsl_sent or qso.eqsl_rcvd) else None),
+        ('Their SOTA', qso.sota_ref), ('Their POTA', qso.pota_ref), ('Their WWFF', qso.wwff_ref),
+        ('My SOTA', qso.my_sota_ref), ('My POTA', qso.my_pota_ref), ('My WWFF', qso.my_wwff_ref),
+        ('Contest', qso.contest_id),
+      ]) }}
+    </section>
+    {% endif %}
+
+    {% if qso.comment or qso.notes or qso.tags %}
+    <section class="panel">
+      <h2>Notes</h2>
+      {% if qso.comment %}<p><b>{{ qso.comment }}</b></p>{% endif %}
+      <div class="prose">{{ qso.notes|textblock }}</div>
+      {{ tag_list(qso.tags) }}
+    </section>
+    {% endif %}
+
+    {{ links_panel('qso', qso, linked, 'QSL cards, photos & links') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>{{ qso.call }} in the log</h2>
+      {% if contact %}<p>{{ contact.name or '' }} {% if contact.qth %}· {{ contact.qth }}{% endif %} <a href="{{ url_for('contacts.view', record_id=contact.id) }}">Contact card</a></p>{% endif %}
+      {% if others %}
+      <ul class="linked-list">
+        {% for o in others %}
+        <li><a href="{{ url_for('qsos.view', record_id=o.id) }}">{{ o.time_on|dt }}</a> <span class="muted">{{ o.band or '' }} {{ display_mode(o.mode, o.submode) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">First QSO with {{ qso.call }}.</p>
+      {% endif %}
+    </section>
+    {% if qso.extra_adif and qso.extra_adif != '{}' %}
+    <section class="panel">
+      <h2>Other ADIF fields</h2>
+      <p class="small muted">Kept from the import so exports stay complete.</p>
+      <pre class="code small" style="white-space: pre-wrap">{{ qso.extra_adif }}</pre>
+    </section>
+    {% endif %}
+    {{ record_meta(qso) }}
+  </aside>
+</div>
+{% endblock %}

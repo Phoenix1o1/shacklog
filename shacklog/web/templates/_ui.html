@@ -1,0 +1,136 @@
+{# Shared UI pieces used by every section. #}
+
+{% macro pagination(page) %}
+{% if page.pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if page.has_prev %}<a class="btn btn-quiet" href="{{ url_with(page=page.page - 1) }}" rel="prev">Previous</a>{% endif %}
+  <span>Page {{ page.page }} of {{ page.pages }}</span>
+  {% if page.has_next %}<a class="btn btn-quiet" href="{{ url_with(page=page.page + 1) }}" rel="next">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro count_line(page, noun='records') %}
+<p class="count-line">{% if page.total %}{{ page.first_index }}–{{ page.last_index }} of {{ page.total }} {{ noun }}{% else %}No {{ noun }}{% endif %}</p>
+{% endmacro %}
+
+{% macro empty(message, action_url=None, action_label=None) %}
+<div class="empty">
+  <p>{{ message }}</p>
+  {% if action_url %}<a class="btn btn-primary" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro page_head(title, subtitle=None) %}
+<div class="page-head">
+  <div>
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
+  </div>
+  <div class="page-actions">{{ caller() if caller else '' }}</div>
+</div>
+{% endmacro %}
+
+{# Definition list of label/value pairs; empty values are skipped. #}
+{% macro facts(pairs) %}
+<dl class="facts">
+  {% for label, value in pairs if value not in (None, '', []) %}
+  <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {% endfor %}
+</dl>
+{% endmacro %}
+
+{% macro record_meta(obj) %}
+<p class="record-meta">
+  Created {{ obj.created_at|dt }} UTC{% if obj.updated_at and obj.updated_at != obj.created_at %}, changed {{ obj.updated_at|dt }} UTC{% endif %}.
+  <span class="muted">ID {{ obj.id[:8] }}</span>
+</p>
+{% endmacro %}
+
+{% macro delete_button(url, what='this record') %}
+<form method="post" action="{{ url }}" class="inline-form"
+      onsubmit="return confirm('Move {{ what }} to the trash? You can restore it from Settings › Trash.');">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <button class="btn btn-danger" type="submit">Delete</button>
+</form>
+{% endmacro %}
+
+{% macro tag_list(tags_text, endpoint=None) %}
+{% set items = tags_text|tags %}
+{% if items %}
+<ul class="tags">
+  {% for t in items %}<li>{% if endpoint %}<a href="{{ url_for(endpoint, tags=t) }}">{{ t }}</a>{% else %}{{ t }}{% endif %}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
+
+{#
+  Linked records & attachments panel.
+    entity  – entity name of the page's record ("equipment")
+    obj     – the record
+    linked  – list[services.links.LinkedItem]
+#}
+{% macro links_panel(entity, obj, linked, title='Linked records & files') %}
+<section class="panel links-panel" id="links">
+  <h2>{{ title }}</h2>
+  {% if linked %}
+  <ul class="linked-list">
+    {% for item in linked %}
+    <li>
+      <span class="linked-kind">{{ item.role or item.entity|replace('_', ' ') }}</span>
+      {% if item.obj %}
+        {% set url = entity_url(item.entity, item.obj.id) %}
+        {% if url %}<a href="{{ url }}">{{ item.obj.display_name() }}</a>{% else %}{{ item.obj.display_name() }}{% endif %}
+        {% if item.entity == 'file' %}
+          <span class="muted">{{ item.obj.size|filesize }}</span>
+          <a class="small" href="{{ url_for('files.download', record_id=item.obj.id) }}">Download</a>
+        {% endif %}
+      {% else %}
+        <span class="muted">Not on this instance yet ({{ item.entity }})</span>
+      {% endif %}
+      {% if item.link.note %}<span class="muted">— {{ item.link.note }}</span>{% endif %}
+      <form method="post" action="{{ url_for('links.remove', record_id=item.link.id) }}" class="inline-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="back" value="{{ request.path }}#links">
+        <button class="linklike danger" aria-label="Unlink">Unlink</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing linked yet. Attach a manual, photo or sweep, or link another record.</p>
+  {% endif %}
+
+  <details class="link-add">
+    <summary>Attach a file</summary>
+    <form method="post" action="{{ url_for('links.attach_upload') }}" enctype="multipart/form-data" class="grid">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="a_type" value="{{ entity }}">
+      <input type="hidden" name="a_id" value="{{ obj.id }}">
+      <input type="hidden" name="back" value="{{ request.path }}#links">
+      <div class="field w-full"><label>Files<input type="file" name="files" multiple required></label></div>
+      <div class="field w-half"><label>Category
+        <select name="category">{% for v, l in M.FILE_CATEGORIES %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></label></div>
+      <div class="field w-half"><label>Role (optional)<input name="role" placeholder="manual, photo, sweep, qsl…"></label></div>
+      <div class="form-actions"><button class="btn btn-primary">Upload and attach</button></div>
+    </form>
+  </details>
+
+  <details class="link-add">
+    <summary>Link an existing record</summary>
+    <form method="get" action="{{ url_for('links.picker') }}" class="picker-form"
+          hx-get="{{ url_for('links.picker') }}" hx-target="#picker-results-{{ obj.id[:8] }}" hx-trigger="submit, input changed delay:300ms from:find input[name=q]">
+      <input type="hidden" name="a_type" value="{{ entity }}">
+      <input type="hidden" name="a_id" value="{{ obj.id }}">
+      <select name="type" aria-label="Record type">
+        {% for e, l in [('file', 'Library file'), ('equipment', 'Equipment'), ('repeater', 'Repeater'), ('station', 'Station'), ('qso', 'QSO'), ('swl', 'Listening entry'), ('journal', 'Journal entry'), ('radio_config', 'Radio config'), ('contact', 'Contact')] if e != entity %}
+        <option value="{{ e }}">{{ l }}</option>
+        {% endfor %}
+      </select>
+      <input name="q" placeholder="Search…" aria-label="Search records to link">
+      <button class="btn">Find</button>
+    </form>
+    <div id="picker-results-{{ obj.id[:8] }}"></div>
+  </details>
+</section>
+{% endmacro %}

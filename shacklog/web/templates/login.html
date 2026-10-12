@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="auth-box">
+  <div class="panel">
+    {% if first_run %}
+    <h1>Set a password</h1>
+    <p>This instance is on the network and has no password yet. Enter the setup code
+       printed in the server console or log, then choose a password.</p>
+    {% else %}
+    <h1>Sign in</h1>
+    {% endif %}
+    <form method="post" class="grid">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      {% if first_run %}
+      <div class="field"><label for="setup_code">Setup code</label>
+        <input id="setup_code" name="setup_code" autocomplete="one-time-code" required></div>
+      <div class="field"><label for="password">New password (8+ characters)</label>
+        <input id="password" type="password" name="password" autocomplete="new-password" required minlength="8"></div>
+      <div class="field"><label for="password2">Repeat password</label>
+        <input id="password2" type="password" name="password2" autocomplete="new-password" required minlength="8"></div>
+      <div class="form-actions"><button class="btn btn-primary">Set password and sign in</button></div>
+      {% else %}
+      <div class="field"><label for="password">Password</label>
+        <input id="password" type="password" name="password" autocomplete="current-password" required autofocus></div>
+      <div class="field field-bool"><label><input type="checkbox" name="remember" value="1" checked> Keep me signed in on this device</label></div>
+      <div class="form-actions"><button class="btn btn-primary">Sign in</button></div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

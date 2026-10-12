@@ -1,0 +1,9 @@
+{# htmx fragment shown under the callsign while typing #}
+{% if count %}
+<p class="flash flash-warn">Worked <b>{{ call }}</b> {{ count }}× before — last {{ last.time_on|dt }} UTC on {{ last.band or '' }} {{ display_mode(last.mode, last.submode) }}{% if last.name %}, name {{ last.name }}{% endif %}.
+  <a href="{{ url_for('contacts.callsign', call=call) }}">History</a></p>
+{% elif contact %}
+<p class="flash">{{ call }} is in your contacts{% if contact.name %} ({{ contact.name }}){% endif %} but not in the log yet.</p>
+{% else %}
+<p class="muted">New callsign.{% if heard %} Heard {{ heard }}× in the listening log.{% endif %}</p>
+{% endif %}

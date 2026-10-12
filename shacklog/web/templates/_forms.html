@@ -1,0 +1,84 @@
+{#
+  Form macros. A view passes:
+    sections  – list[forms.Section]
+    values    – dict name -> string shown in the input
+    errors    – dict name -> message
+    choices   – dict name -> list[(value, label)] (from forms.resolve_choices)
+#}
+
+{% macro csrf() %}<input type="hidden" name="_csrf" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro field(f, values, errors, choices) %}
+{% set value = values.get(f.name, '') %}
+{% set err = errors.get(f.name) %}
+{% set fid = 'f-' ~ f.name %}
+<div class="field w-{{ f.width }}{% if err %} has-error{% endif %}{% if f.type == 'bool' %} field-bool{% endif %}">
+  {% if f.type == 'bool' %}
+    <label for="{{ fid }}"><input type="checkbox" id="{{ fid }}" name="{{ f.name }}" value="1" {% if value %}checked{% endif %}> {{ f.label }}</label>
+  {% else %}
+    <label for="{{ fid }}">{{ f.label }}{% if f.required %} <span class="req" aria-label="required">*</span>{% endif %}</label>
+    {% if f.type == 'textarea' %}
+      <textarea id="{{ fid }}" name="{{ f.name }}" rows="{{ f.attrs.get('rows', 4) }}" placeholder="{{ f.placeholder or '' }}"{% for k, v in f.attrs.items() if k != 'rows' %} {{ k }}="{{ v }}"{% endfor %}>{{ value }}</textarea>
+    {% elif f.type == 'select' %}
+      <select id="{{ fid }}" name="{{ f.name }}"{% for k, v in f.attrs.items() %} {{ k }}="{{ v }}"{% endfor %}>
+        {% if f.blank %}<option value="">—</option>{% endif %}
+        {% for opt_value, opt_label in choices.get(f.name, []) %}
+        <option value="{{ opt_value }}" {% if opt_value|string == value|string %}selected{% endif %}>{{ opt_label }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      {% set itype = {'datetime': 'datetime-local', 'date': 'date', 'url': 'url', 'email': 'email', 'int': 'text', 'float': 'text', 'freq': 'text', 'power': 'text', 'lat': 'text', 'lon': 'text'}.get(f.type, 'text') %}
+      {% set imode = {'int': 'numeric', 'float': 'decimal', 'freq': 'decimal', 'power': 'decimal', 'lat': 'decimal', 'lon': 'decimal'}.get(f.type) %}
+      <input id="{{ fid }}" name="{{ f.name }}" type="{{ itype }}" value="{{ value }}"
+        {% if imode %}inputmode="{{ imode }}"{% endif %}
+        {% if f.type in ('upper', 'locator') %}autocapitalize="characters" autocomplete="off" spellcheck="false"{% endif %}
+        {% if f.placeholder %}placeholder="{{ f.placeholder }}"{% endif %}
+        {% if f.required %}required{% endif %}
+        {% for k, v in f.attrs.items() %} {{ k }}="{{ v }}"{% endfor %}
+        class="t-{{ f.type }}">
+    {% endif %}
+  {% endif %}
+  {% if err %}<p class="field-error">{{ err }}</p>{% endif %}
+  {% if f.help %}<p class="field-help">{{ f.help }}</p>{% endif %}
+  {{ caller() if caller else '' }}
+</div>
+{% endmacro %}
+
+{% macro render_sections(sections, values, errors, choices) %}
+{% for section in sections %}
+  {% if section_is_open(section, values, errors) %}
+  <fieldset class="form-section">
+    {% if section.title %}<legend>{{ section.title }}</legend>{% endif %}
+    {% if section.note %}<p class="section-note">{{ section.note }}</p>{% endif %}
+    <div class="grid">
+      {% for f in section.fields %}{{ field(f, values, errors, choices) }}{% endfor %}
+    </div>
+  </fieldset>
+  {% else %}
+  <details class="form-section form-section-collapsed">
+    <summary>{{ section.title }}</summary>
+    {% if section.note %}<p class="section-note">{{ section.note }}</p>{% endif %}
+    <div class="grid">
+      {% for f in section.fields %}{{ field(f, values, errors, choices) }}{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+{% endfor %}
+{% endmacro %}
+
+{#
+  Full form with save/cancel. ``extra`` is an optional caller block placed before the
+  buttons (e.g. measurement rows of a journal entry).
+#}
+{% macro render_form(sections, values, errors, choices, submit='Save', cancel_url=None, enctype=None, id=None) %}
+<form method="post" class="record-form" {% if enctype %}enctype="{{ enctype }}"{% endif %} {% if id %}id="{{ id }}"{% endif %}>
+  {{ csrf() }}
+  {% if errors %}<p class="flash flash-error" role="alert">Check the highlighted fields.</p>{% endif %}
+  {{ render_sections(sections, values, errors, choices) }}
+  {{ caller() if caller else '' }}
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{{ submit }}</button>
+    {% if cancel_url %}<a class="btn btn-quiet" href="{{ cancel_url }}">Cancel</a>{% endif %}
+  </div>
+</form>
+{% endmacro %}

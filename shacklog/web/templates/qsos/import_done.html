@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Import finished{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import finished</h1></div>
+<section class="panel">
+  <p>{{ filename }}</p>
+  <ul class="tally">
+    <li><b>{{ summary.created }}</b><span>QSOs added</span></li>
+    <li><b>{{ summary.duplicates }}</b><span>already in the log</span></li>
+    <li><b>{{ summary.skipped }}</b><span>skipped (unreadable)</span></li>
+  </ul>
+  {% if summary.errors %}
+  <h2>Problems</h2>
+  <ul>{% for e in summary.errors[:50] %}<li>{{ e }}</li>{% endfor %}</ul>
+  {% if summary.errors|length > 50 %}<p class="muted">…and {{ summary.errors|length - 50 }} more.</p>{% endif %}
+  {% endif %}
+</section>
+<p><a class="btn btn-primary" href="{{ url_for('qsos.index') }}">Open the log</a>
+   <a class="btn" href="{{ url_for('qsos.import_adif') }}">Import another file</a></p>
+{% endblock %}

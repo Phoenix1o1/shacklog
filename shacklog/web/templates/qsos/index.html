@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}QSOs{% endblock %}
+{% block content %}
+{% call page_head("QSOs", "Two-way contacts, newest first. All times UTC.") %}
+  <a class="btn btn-primary" href="{{ url_for('qsos.new') }}">Log QSO</a>
+  <a class="btn" href="{{ url_for('qsos.import_adif') }}">Import ADIF</a>
+  <a class="btn" href="{{ url_for('qsos.export_adi') }}?{{ query_string() }}">Export ADIF</a>
+  <a class="btn" href="{{ url_for('qsos.export_csv') }}?{{ query_string() }}">Export CSV</a>
+  <a class="btn btn-quiet" href="{{ url_for('map.index', layer='qso') }}&{{ query_string() }}">Show on map</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, saved, 'qso') }}
+{{ count_line(page, 'QSOs') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('time', 'Date & time UTC', sort_key, sort_dir) }}
+    {{ sort_th('call', 'Call', sort_key, sort_dir) }}
+    {{ sort_th('freq', 'MHz', sort_key, sort_dir, 'num') }}
+    {{ sort_th('mode', 'Mode', sort_key, sort_dir) }}
+    <th>RST s/r</th>
+    <th>Name · QTH</th>
+    <th>Via</th>
+    <th>Station</th>
+    {% if fresult.distance is not none %}
+      {{ sort_th('distance', 'km from ' ~ (fresult.center_label or 'point'), sort_key, sort_dir, 'num') }}
+    {% else %}
+      {{ sort_th('dist', 'km', sort_key, sort_dir, 'num') }}
+    {% endif %}
+  </tr></thead>
+  <tbody>
+  {% for q, dist in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="num" data-label="UTC">{{ q.time_on|dt }}</td>
+    <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.call }}</a></td>
+    <td class="num" data-label="MHz">{{ q.freq_mhz|freq }}</td>
+    <td data-label="Mode">{{ display_mode(q.mode, q.submode) }} <span class="muted">{{ q.band or '' }}</span></td>
+    <td data-label="RST">{{ q.rst_sent or '' }}{% if q.rst_rcvd %}/{{ q.rst_rcvd }}{% endif %}</td>
+    <td class="wrap" data-label="Name">{{ q.name or '' }}{% if q.name and q.qth %} · {% endif %}{{ q.qth or '' }}</td>
+    <td data-label="Via">{% if q.repeater %}<a href="{{ url_for('repeaters.view', record_id=q.repeater.id) }}">{{ q.repeater.ident or q.repeater.callsign or q.repeater.name }}</a>{% elif q.sat_name %}{{ q.sat_name }}{% elif q.prop_mode %}{{ q.prop_mode }}{% endif %}</td>
+    <td data-label="Station">{{ q.station.name if q.station else '' }}</td>
+    <td class="num" data-label="Distance">{{ dist|km }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No QSOs match these filters.", url_for('qsos.index'), "Clear filters") }}
+{% else %}
+  {{ empty("No QSOs yet. Log your first contact or import an ADIF file from another logger.", url_for('qsos.new'), "Log QSO") }}
+{% endif %}
+{% endblock %}

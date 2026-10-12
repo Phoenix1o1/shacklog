@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Link a record{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Link a record</h1></div>
+<form method="get" class="picker-form">
+  <input type="hidden" name="a_type" value="{{ a_type }}">
+  <input type="hidden" name="a_id" value="{{ a_id }}">
+  <input type="hidden" name="type" value="{{ entity }}">
+  <input name="q" value="{{ request.args.get('q', '') }}" placeholder="Search…" aria-label="Search">
+  <button class="btn">Find</button>
+</form>
+<section class="panel">{% include "links/_picker_results.html" %}</section>
+{% endblock %}
