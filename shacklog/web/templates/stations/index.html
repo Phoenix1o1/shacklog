@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar, sort_th %}
 {% block title %}Stations{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Stations", "Places I operate from. Distances everywhere are measured from one of these.") %}
   <a class="btn btn-primary" href="{{ url_for('stations.new') }}">Add station</a>

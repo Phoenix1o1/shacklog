@@ -2,7 +2,6 @@
 {% from "_forms.html" import render_sections, csrf %}
 {% block title %}Add files{% endblock %}
 {% block page_class %}page-narrow{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Add files to the library</h1></div>
 <form method="post" enctype="multipart/form-data" class="record-form">

@@ -77,7 +77,11 @@ def setup():
     mode = current_app.config["MODE"]
     form = request.form
     errors: list[str] = []
-    if request.method == "POST":
+    if request.method == "POST" and form.get("setup_kind") == "join":
+        errors = _join_hub(form)
+        if not errors:
+            return redirect(url_for(".dashboard"))
+    elif request.method == "POST":
         callsign = form.get("callsign", "").replace(" ", "").upper()
         try:
             home = _station_from(form.get("home_name", "").strip(), "home", callsign,
@@ -109,6 +113,48 @@ def setup():
             return redirect(url_for(".dashboard"))
     return render_template("main/setup.html", errors=errors, form=form, mode=mode,
                            instance_name=h.database().instance_name)
+
+
+def _join_hub(form) -> list[str]:
+    """First run on another computer: connect to the hub and pull everything.
+
+    Creating stations here instead would give the hub a second "Home" every time a new
+    instance is set up, so a joining instance takes its stations from the hub.
+    """
+    from shacklog.services.sync_client import SyncClient, SyncError, normalize_hub_url
+
+    s = h.session()
+    url = normalize_hub_url(form.get("hub_url"))
+    token = form.get("hub_token", "").strip()
+    password = form.get("password", "")
+    if not url or not token:
+        return ["Enter the hub address and the sync token shown on the hub (Settings › Sync)."]
+    if password and len(password) < MIN_PASSWORD_LENGTH:
+        return [f"The password needs at least {MIN_PASSWORD_LENGTH} characters."]
+    if form.get("instance_name", "").strip():
+        h.database().rename_instance(form["instance_name"])
+    h.save_setting("sync_hub_url", url)
+    h.save_setting("sync_client_token", token)
+    h.save_setting("sync_interval_min", 15)
+    h.save_setting("sync_pull_files", True)
+    s.commit()  # the sync client reads the settings in its own session
+    client = SyncClient.from_settings(h.database(), h.filestore())
+    try:
+        stats = client.run()
+    except SyncError as exc:
+        return [f"Couldn't sync with the hub: {exc}"]
+    home = (h.live(Station).order_by((Station.kind != "home"), Station.created_at).first())
+    if home is not None:
+        h.save_setting("default_station_id", home.id)
+        h.save_setting("reference_station_id", home.id)
+    if password:
+        h.save_setting("password_hash", hash_password(password))
+        h.save_setting("require_login_local", bool(form.get("require_login_local")))
+    h.save_setting("setup_done", True)
+    s.commit()
+    flash(f"Joined the hub and copied {stats.get('pulled', 0)} records. This computer now syncs every "
+          "15 minutes (Settings › Sync).", "ok")
+    return []
 
 
 # ---------------------------------------------------------------------------

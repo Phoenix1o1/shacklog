@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar, sort_th %}
 {% block title %}Listening log{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Listening log", "Stations, aircraft, satellites and beacons heard. All times UTC.") %}
   <a class="btn btn-primary" href="{{ url_for('swl.new') }}">Log something heard</a>

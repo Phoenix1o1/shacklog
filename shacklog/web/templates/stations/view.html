@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, page_head %}
 {% block title %}{{ station.name }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(station.name, (station.kind|label(M.STATION_KINDS)) ~ ((' · ' ~ station.callsign) if station.callsign else '') ~ ((' · ' ~ station.locator) if station.locator else '')) %}
   <a class="btn btn-primary" href="{{ url_for('stations.edit', record_id=station.id) }}">Edit</a>

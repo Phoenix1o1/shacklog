@@ -369,3 +369,184 @@ input.t-freq { font-variant-numeric: tabular-nums; }
   .ledger td.num { text-align: left; }
   .saved-panel { left: 0; right: auto; }
 }
+
+/* ==================== reference (merged from parts/reference.css) ==================== */
+/* ---------- reference sections: repeaters, radio configs, stations, equipment, contacts ----------
+   Uses only the tokens of app.css (--accent, --rule, --bar, --margin…). Loaded by the
+   templates of these sections through their `head` block. */
+
+/* Rows of retired equipment and off-air repeaters stay readable but recede. */
+.retired-row td { color: var(--ink-2); }
+.retired-row a.rowlink { color: var(--ink-2); }
+
+/* Small forms stacked under other content (station buttons, re-match). */
+.stack-form { margin-top: .6rem; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+/* Repeater list: the "send this list to a radio" panel. */
+.chirp-export { padding: .6rem 1rem; }
+.chirp-export > summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.chirp-export[open] > summary { margin-bottom: .75rem; }
+
+/* Repeater page: the four numbers needed to program a radio, larger. */
+.rpt-key { margin-bottom: 1rem; }
+.rpt-key dd { font-size: var(--step-1); font-weight: 700; }
+
+/* Radio configuration page. */
+.file-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0 0; }
+.file-buttons .btn .muted { font-weight: 400; }
+.compare-form { display: flex; flex-direction: column; gap: .4rem; align-items: stretch; }
+.compare-form label { font-size: var(--step--1); color: var(--ink-2); font-weight: 700; }
+.compare-form .btn { align-self: flex-start; }
+.channel-table tbody tr:target td { background: color-mix(in srgb, var(--amber) 30%, var(--surface)); }
+
+/* Diff of two configurations: removed rows red-ruled, added rows green-ruled. */
+.diff-tally { margin: .5rem 0 1rem; }
+.diff-table tr.diff-old td:nth-child(3) { box-shadow: inset 3px 0 0 var(--margin); }
+.diff-table tr.diff-new td:nth-child(3) { box-shadow: inset 3px 0 0 var(--accent); }
+.diff-table tr.diff-old td { color: var(--ink-2); }
+
+/* Contacts index: callsign jump box and the two halves of the page. */
+.call-jump { display: flex; flex-direction: column; gap: .2rem; max-width: 26rem; margin-bottom: 1.25rem; }
+.call-jump label { font-size: var(--step--1); color: var(--ink-2); font-weight: 700; }
+.call-jump-row { display: flex; gap: .4rem; }
+.call-jump-row input { flex: 1; text-transform: uppercase; font-weight: 700; letter-spacing: .03em; }
+.contact-cards, .calls-in-log { margin-bottom: 2rem; }
+.card-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+
+@media (max-width: 720px) {
+  .diff-table tr.diff-old td:nth-child(3), .diff-table tr.diff-new td:nth-child(3) { box-shadow: none; }
+  .diff-table tr.diff-old { border-left-color: var(--margin); border-left-style: solid; }
+  .diff-table tr.diff-new { border-left-color: var(--accent); border-left-style: solid; }
+  .call-jump { max-width: none; }
+}
+
+/* ==================== logs (merged from parts/logs.css) ==================== */
+/*
+  Styles for the listening log, journal, library, search, map and statistics pages.
+  Loaded by those templates after app.css; uses only app.css tokens (no new colours).
+*/
+
+/* ---------- journal: measurement grid ---------- */
+.measure-wrap { overflow-x: auto; margin: .25rem 0 .5rem; }
+.measure-grid { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.measure-grid th { font-size: var(--step--1); color: var(--ink-2); text-align: left; padding: .2rem .25rem; white-space: nowrap; border-bottom: 2px solid var(--rule-strong); }
+.measure-grid td { padding: .2rem .25rem; vertical-align: top; }
+.measure-grid tr.measure-new td { background: var(--bar); }
+.measure-grid input { min-height: 2.2rem; padding: .3rem .4rem; min-width: 4.5rem; }
+.measure-grid .m-freq input { min-width: 6.5rem; }
+.measure-grid .m-text input { min-width: 11rem; }
+.measure-grid .field-error { white-space: normal; max-width: 9rem; }
+
+.sweep { border-top: 1px solid var(--rule); padding-top: .75rem; margin-top: .75rem; }
+.sweep:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.sweep h3 { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: baseline; }
+.sweep-figure { margin: .75rem 0 0; }
+.sweep-attach { margin-top: 1rem; padding: .75rem; border: 2px dashed var(--rule-strong); border-radius: 6px; }
+.sweep-attach-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+/* min-width: 0 — a file input's intrinsic width (~23rem in Chrome) would otherwise widen
+   the whole detail column past a 360 px phone screen. */
+.sweep-attach-row input[type="file"] { flex: 1 1 14rem; width: 100%; min-width: 0; }
+
+/* ---------- library ---------- */
+.file-preview img { display: block; max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+.file-frame { display: block; width: 100%; height: 75vh; min-height: 22rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
+.file-text { max-height: 70vh; overflow: auto; margin: 0; padding: .75rem; background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; font-size: var(--step--1); line-height: 1.4; white-space: pre; tab-size: 4; }
+.hash { overflow-wrap: anywhere; font-size: var(--step--1); }
+.upload-files { padding: .75rem; border: 2px dashed var(--rule-strong); border-radius: 6px; }
+
+/* ---------- search ---------- */
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.shortcuts > .panel { margin: 0; border-left: 4px solid var(--accent); }
+.shortcuts h2 { font-size: var(--step-0); margin-bottom: .35rem; }
+.shortcuts ul { margin: .25rem 0 .5rem; padding-left: 1.1rem; }
+.hit-kind { font-size: var(--step--1); color: var(--ink-2); margin-right: .35rem; }
+.search-help ul { padding-left: 1.1rem; }
+.search-big { display: flex; gap: .5rem; margin-bottom: .75rem; }
+.search-big input { flex: 1; }
+
+/* ---------- map ---------- */
+.map-controls { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin-bottom: .5rem; }
+.map-controls fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .25rem .9rem; }
+.map-controls legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.map-controls label { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.25rem; }
+.map-swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid currentColor; }
+.map-swatch.qso { color: var(--accent); }
+.map-swatch.swl { color: var(--amber); }
+.map-swatch.repeater { color: var(--margin); }
+.map-swatch.station { color: var(--ink); border-radius: 2px; }
+.map-area { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-left: auto; }
+.map-area select { width: auto; }
+.map-status { font-size: var(--step--1); color: var(--ink-2); margin: .4rem 0 0; min-height: 1.4em; }
+.map-popup-title { font-weight: 700; }
+.map-popup-sub { color: #51665e; }
+
+/* ---------- statistics ---------- */
+.stats-filter { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end; margin-bottom: 1rem; }
+.stats-filter .filter { flex: 0 1 12rem; }
+.stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.stats-grid > .panel { margin: 0; }
+.stats-grid > .panel.wide { grid-column: 1 / -1; }
+.stats-grid .bars li { grid-template-columns: minmax(4.5rem, 9rem) 1fr 3.5rem; }
+.stats-grid .bars .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars.months li { grid-template-columns: 4.5rem 1fr 2.5rem; }
+.stats-grid .ledger td, .stats-grid .ledger th { padding: .3rem .5rem; }
+
+@media (max-width: 860px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  /* Measurement rows become small cards, like the ledgers. */
+  .measure-grid thead { display: none; }
+  .measure-grid, .measure-grid tbody, .measure-grid tr { display: block; width: 100%; }
+  .measure-grid tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem .5rem; padding: .5rem 0; border-bottom: 1px solid var(--rule); }
+  .measure-grid td { display: flex; flex-direction: column; padding: 0; }
+  .measure-grid td:first-child { grid-column: 1 / -1; font-size: var(--step--1); color: var(--ink-2); }
+  .measure-grid td.m-text { grid-column: 1 / -1; }
+  .measure-grid td[data-label]::before { content: attr(data-label); font-size: var(--step--1); color: var(--ink-2); }
+  .measure-grid input { min-width: 0; }
+  .map-area { margin-left: 0; }
+  .file-frame { height: 60vh; }
+}
+
+/* ==================== sync (merged from parts/sync.css) ==================== */
+/*
+  Settings, sync, conflicts and trash pages. Loaded by templates/settings/_layout.html.
+  Uses the custom properties defined in app.css; no new colours or fonts.
+*/
+
+/* ---------- settings ---------- */
+.settings-nav { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 1rem; padding: 0 0 .75rem; border-bottom: 1px solid var(--rule); }
+.settings-nav a { display: inline-block; padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--rule-strong); text-decoration: none; font-size: var(--step--1); color: var(--ink); }
+.settings-nav a:hover { border-color: var(--accent); color: var(--accent); }
+.settings-nav a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.settings-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.settings-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.settings-sub { margin-top: 1.25rem; }
+.settings-grid .record-form { max-width: none; }
+.settings-grid .facts { grid-template-columns: 1fr; }
+.settings-grid .facts dd { font-size: var(--step--1); }
+code.path, .facts dd { overflow-wrap: anywhere; }
+
+/* ---------- sync ---------- */
+.sync-state { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.token-panel { border-color: var(--amber); border-width: 2px; }
+.token-panel .token { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: var(--step-0); letter-spacing: .02em; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ---------- backups ---------- */
+.backup-list { list-style: none; padding: 0; margin: .75rem 0; }
+.backup-list li { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: baseline; padding: .35rem 0; border-bottom: 1px dotted var(--rule); }
+
+/* ---------- conflicts ---------- */
+.conflict-head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; align-items: flex-start; margin-bottom: .5rem; }
+.conflict-head h2 { margin-bottom: .2rem; }
+.conflict-resolved { opacity: .75; }
+.ledger.diff td.diff-old { color: var(--margin); }
+.ledger.diff td.diff-new { color: var(--accent); }
+.ledger.diff td { overflow-wrap: anywhere; max-width: 28rem; }
+
+@media (max-width: 860px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}

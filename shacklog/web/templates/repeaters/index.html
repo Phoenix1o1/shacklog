@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar, sort_th %}
 {% block title %}Repeaters{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Repeaters", "Repeaters, nodes and beacons. Filter by distance from a station, then send the list to a radio as a CHIRP CSV.") %}
   <a class="btn btn-primary" href="{{ url_for('repeaters.new') }}">Add repeater</a>

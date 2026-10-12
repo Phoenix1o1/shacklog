@@ -2,7 +2,6 @@
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% set name = entry.heard or (entry.category|label(SWL_CATEGORIES)) %}
 {% block title %}{{ name }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(name, (entry.time_utc|dt) ~ ' UTC' ~ ((' · ' ~ (entry.freq_mhz|freq) ~ ' MHz') if entry.freq_mhz else '') ~ ((' · ' ~ entry.mode) if entry.mode else '')) %}
   <a class="btn btn-primary" href="{{ url_for('swl.edit', record_id=entry.id) }}">Edit</a>

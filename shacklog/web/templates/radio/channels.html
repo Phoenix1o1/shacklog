@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar %}
 {% block title %}Find a channel{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Find a channel", "Where is a frequency or a name programmed? Searches the channels of every saved configuration.") %}
   <a class="btn" href="{{ url_for('radio.index') }}">All configurations</a>

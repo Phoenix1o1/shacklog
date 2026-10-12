@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import page_head %}
 {% block title %}{% if q %}Search: {{ q }}{% else %}Search{% endif %}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Search", "Everything in this logbook: logs, repeaters, equipment, contacts and the text inside library files.") %}{% endcall %}
 

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ entry.title }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% macro mhz(v) %}{% if v is not none %}{{ '%.3f'|format(v) }} MHz{% endif %}{% endmacro %}
 {% macro num(v, fmt='%g') %}{% if v is not none %}{{ fmt|format(v) }}{% endif %}{% endmacro %}
 {% block content %}

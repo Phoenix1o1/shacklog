@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ rep.name }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(rep.name, [rep.callsign, rep.ident, (rep.output_mhz|freq ~ ' MHz') if rep.output_mhz else None, rep.kind|label(M.REPEATER_KINDS)]|select|join(' · ')) %}
   <a class="btn btn-primary" href="{{ url_for('qsos.new', repeater=rep.id) }}">Log QSO via this repeater</a>

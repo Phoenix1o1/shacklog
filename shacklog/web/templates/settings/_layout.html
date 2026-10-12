@@ -3,7 +3,6 @@
   Pages set ``settings_tab`` (index, sync, data, conflicts, trash) and fill ``settings_body``.
 #}
 {% extends "base.html" %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/sync.css') }}">{% endblock %}
 {% block content %}
 <nav class="settings-nav" aria-label="Settings pages">
   {% for endpoint, label in [('settings.index', 'General'), ('settings.sync', 'Sync'), ('settings.data', 'Import, export & backups'), ('settings.conflicts', 'Conflicts'), ('settings.trash', 'Trash')] %}

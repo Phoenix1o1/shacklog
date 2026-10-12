@@ -10,8 +10,31 @@
   </div>
 </div>
 {% for e in errors %}<p class="flash flash-error">{{ e }}</p>{% endfor %}
+<details class="form-section form-section-collapsed" {% if form.get('setup_kind') == 'join' %}open{% endif %}>
+  <summary>Another computer already runs ShackLog? Join it instead</summary>
+  <p class="section-note">Use this on every computer after the first: it copies your stations, logs and
+     library from the hub (Settings › Sync on the hub shows the token) and keeps them in sync.</p>
+  <form method="post" class="grid">
+    {{ csrf() }}
+    <input type="hidden" name="setup_kind" value="join">
+    <div class="field w-half"><label for="j_instance_name">Name of this instance</label>
+      <input id="j_instance_name" name="instance_name" value="{{ form.get('instance_name', instance_name) }}"></div>
+    <div class="field w-half"><label for="hub_url">Hub address</label>
+      <input id="hub_url" name="hub_url" type="url" value="{{ form.get('hub_url', '') }}" placeholder="http://192.168.1.20:8573" spellcheck="false"></div>
+    <div class="field w-full"><label for="hub_token">Sync token</label>
+      <input id="hub_token" name="hub_token" type="password" autocomplete="off"></div>
+    {% if mode == 'desktop' %}
+    <div class="field w-half"><label for="j_password">Password for this computer (optional)</label>
+      <input id="j_password" type="password" name="password" autocomplete="new-password" minlength="8"></div>
+    <div class="field w-half field-bool"><label><input type="checkbox" name="require_login_local" value="1"> Ask for it on this computer too</label></div>
+    {% endif %}
+    <div class="form-actions"><button class="btn btn-primary">Join the hub and sync</button></div>
+  </form>
+</details>
+
 <form method="post" class="record-form">
   {{ csrf() }}
+  <input type="hidden" name="setup_kind" value="new">
   <fieldset class="form-section">
     <legend>This computer</legend>
     <div class="grid">

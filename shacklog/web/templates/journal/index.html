@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar, sort_th %}
 {% block title %}Journal{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 {% call page_head("Journal", "Antenna builds, SWR readings and NanoVNA sweeps, and the station diary.") %}
   <a class="btn btn-primary" href="{{ url_for('journal.new', kind='test') }}">New test entry</a>

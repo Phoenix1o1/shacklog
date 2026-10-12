@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ call }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(call, ([card.name if card else (latest.name if latest else None), card.qth if card and card.qth else (latest.qth if latest else None)]|select|join(' · ')) or None) %}
   <a class="btn btn-primary" href="{{ url_for('qsos.new', call=call) }}">Log QSO with {{ call }}</a>

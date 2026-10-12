@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import page_head %}
 {% block title %}Statistics{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 
 {% macro bar_list(items, cls='') %}
 {% if items %}

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import page_head %}
 {% block title %}Changes: {{ a.title }} → {{ b.title }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% macro ch_cells(ch) %}
   <td class="num" data-label="MHz">{{ ch.get('freq_mhz')|freq }}</td>
   <td class="num" data-label="Shift">{% set sh = shift_of(ch) %}{% if sh is none %}{{ ch.get('duplex') or '' }}{% elif sh %}{{ '%+.3f'|format(sh) }}{% endif %}</td>

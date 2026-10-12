@@ -2,7 +2,6 @@
 {% from "_ui.html" import pagination, count_line, empty, page_head %}
 {% from "_filters.html" import filter_bar, sort_th %}
 {% block title %}Contacts{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% macro call_th(key, label, cls='') %}
 {% set next_dir = 'asc' if (csort == key and cdir == 'desc') else 'desc' %}
 <th class="{{ cls }}" {% if csort == key %}aria-sort="{{ 'descending' if cdir == 'desc' else 'ascending' }}"{% endif %}>

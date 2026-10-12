@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ f.display_name() }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(f.display_name(), (f.category|label(FILE_CATEGORIES)) ~ ' · ' ~ f.filename ~ ' · ' ~ (f.size|filesize)) %}
   {% if present %}<a class="btn btn-primary" href="{{ url_for('files.download', record_id=f.id) }}">Download</a>{% endif %}

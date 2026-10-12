@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_forms.html" import render_form %}
 {% block title %}{{ title }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 <div class="page-head"><h1>{{ title }}</h1></div>
 {{ render_form(sections, values, errors, choices,

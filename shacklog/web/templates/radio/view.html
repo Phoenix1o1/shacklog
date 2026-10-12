@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ config.title }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(config.title, [config.radio.name if config.radio else None, config.edition, config.firmware, config.config_date|day]|select|join(' · ')) %}
   <a class="btn btn-primary" href="{{ url_for('radio.edit', record_id=config.id) }}">Edit</a>

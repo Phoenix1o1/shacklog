@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
 {% block title %}{{ item.name }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
 {% block content %}
 {% call page_head(item.name, (item.kind|label(M.EQUIPMENT_KINDS)) ~ ' · ' ~ (item.status|label(M.EQUIPMENT_STATUS))) %}
   <a class="btn btn-primary" href="{{ url_for('equipment.edit', record_id=item.id) }}">Edit</a>
