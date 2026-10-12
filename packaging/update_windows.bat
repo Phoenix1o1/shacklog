@@ -73,7 +73,9 @@ echo Build complete.
 
 :start
 echo Starting ShackLog...
-start "" "%REPO%\dist\ShackLog.exe"
+rem Launch through Explorer: the new ShackLog is fully detached from this window, so it
+rem keeps running when this window closes (a plain "start" didn't survive that).
+explorer.exe "%REPO%\dist\ShackLog.exe"
 timeout /t 3 /nobreak >nul
 exit /b 0
 
@@ -81,7 +83,7 @@ exit /b 0
 echo.
 if exist dist\ShackLog.exe (
   echo Starting the previous version again.
-  start "" "%REPO%\dist\ShackLog.exe"
+  explorer.exe "%REPO%\dist\ShackLog.exe"
 )
 :fail
 echo.
