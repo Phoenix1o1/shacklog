@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Repeaters{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Repeaters", "Repeaters, nodes and beacons. Filter by distance from a station, then send the list to a radio as a CHIRP CSV.") %}
+  <a class="btn btn-primary" href="{{ url_for('repeaters.new') }}">Add repeater</a>
+  <a class="btn" href="{{ url_for('repeaters.import_chirp') }}">Import CHIRP CSV</a>
+  <a class="btn" href="{{ url_for('repeaters.export_csv') }}?{{ query_string() }}">Export CSV</a>
+  <a class="btn btn-quiet" href="{{ url_for('map.index', layer='repeater') }}&{{ query_string() }}">Show on map</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, saved, 'repeater') }}
+
+<details class="panel chirp-export" id="chirp-export">
+  <summary>Send this list to a radio (CHIRP CSV)</summary>
+  <form method="get" action="{{ url_for('repeaters.export_chirp') }}" class="grid">
+    {% for k, v in carried %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <input type="hidden" name="opts" value="1">
+    <p class="field w-full section-note">Exports the {{ page.total }} repeater{{ '' if page.total == 1 else 's' }} matching the filters above{% if fresult.center_label %}; distances from {{ fresult.center_label }}{% endif %}.
+      In CHIRP: open the radio image, then <i>File › Import</i> and pick this file.</p>
+    <div class="field w-quarter"><label for="x-start">First memory number</label>
+      <input id="x-start" name="start" value="1" inputmode="numeric"></div>
+    <div class="field w-quarter"><label for="x-order">Order</label>
+      <select id="x-order" name="order">
+        <option value="distance" {% if fresult.center_label %}selected{% endif %}>Distance from {{ fresult.center_label or 'centre' }}</option>
+        <option value="freq" {% if not fresult.center_label %}selected{% endif %}>Frequency</option>
+        <option value="name">Name</option>
+      </select></div>
+    <div class="field w-quarter"><label for="x-max">At most (channels)</label>
+      <input id="x-max" name="max" placeholder="all" inputmode="numeric"></div>
+    <div class="field w-quarter"><label for="x-len">Name length</label>
+      <input id="x-len" name="name_len" value="10" inputmode="numeric">
+      <p class="field-help">UV-K1: 10 · TM-733E: 7</p></div>
+    <div class="field w-full field-bool"><label><input type="checkbox" name="fm_only" value="1" checked> Only analog-capable repeaters ({{ fm_kinds_label }})</label></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Download CHIRP CSV</button></div>
+  </form>
+</details>
+
+{{ count_line(page, 'repeaters') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('name', 'Name', sort_key, sort_dir) }}
+    <th>Call · ident</th>
+    {{ sort_th('output', 'Output MHz', sort_key, sort_dir, 'num') }}
+    <th class="num">Shift</th>
+    <th class="num">Tone</th>
+    <th>Kind</th>
+    <th>Site</th>
+    {{ sort_th('country', 'Country', sort_key, sort_dir) }}
+    {% if fresult.distance is not none %}{{ sort_th('distance', 'km from ' ~ (fresult.center_label or 'point'), sort_key, sort_dir, 'num') }}{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for r, dist in page.items %}
+  <tr{% if r.status == 'inactive' %} class="retired-row"{% endif %}>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary" data-label="Name"><a class="rowlink" href="{{ url_for('repeaters.view', record_id=r.id) }}"><b>{{ r.name }}</b></a>{% if r.status == 'inactive' %} <span class="badge badge-bad">off air</span>{% endif %}</td>
+    <td data-label="Call"><span class="call">{{ r.callsign or '' }}</span> <span class="muted">{{ r.ident or '' }}</span></td>
+    <td class="num" data-label="Output">{{ r.output_mhz|freq }}</td>
+    <td class="num" data-label="Shift">{% if r.offset_mhz is not none %}{{ '%+.3f'|format(r.offset_mhz) }}{% endif %}</td>
+    <td class="num" data-label="Tone">{% if r.ctcss_up %}{{ r.ctcss_up }}{% elif r.dcs_code %}D{{ r.dcs_code }}{% elif r.color_code is not none %}CC{{ r.color_code }}{% endif %}</td>
+    <td data-label="Kind">{{ r.kind }}{% if r.network %} <span class="muted">{{ r.network }}</span>{% endif %}</td>
+    <td class="wrap" data-label="Site">{{ r.location_name or '' }}{% if r.locator %} <span class="muted">{{ r.locator }}</span>{% endif %}</td>
+    <td data-label="Country">{{ r.country or '' }}{% if r.region %} <span class="muted">{{ r.region }}</span>{% endif %}</td>
+    {% if fresult.distance is not none %}<td class="num" data-label="Distance">{{ dist|km }}</td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No repeaters match these filters. Try a larger radius.", url_for('repeaters.index'), "Clear filters") }}
+{% else %}
+  {{ empty("No repeaters yet. Import the CHIRP CSV of a radio or a repeater list, or add one by hand.", url_for('repeaters.import_chirp'), "Import CHIRP CSV") }}
+{% endif %}
+{% endblock %}

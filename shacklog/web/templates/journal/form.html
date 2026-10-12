@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_sections, csrf %}
+{% block title %}{{ title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+<form method="post" class="record-form">
+  {{ csrf() }}
+  {% if errors or row_errors %}<p class="flash flash-error" role="alert">Check the highlighted fields.</p>{% endif %}
+  {{ render_sections(sections, values, errors, choices) }}
+
+  <details class="form-section form-section-collapsed measure-section" {% if rows_open or row_errors %}open{% endif %}>
+    <summary>Measurements</summary>
+    <p class="section-note">One reading per row: SWR meter, wattmeter or NanoVNA marker values.
+      Leave SWR empty and fill forward and reflected power to have it computed.
+      Empty rows are ignored; clearing a row removes that reading.</p>
+    <div class="measure-wrap">
+    <table class="measure-grid">
+      <thead><tr>
+        <th class="num" aria-label="Row">#</th>
+        {% for name, label, kind in measure_fields %}<th>{{ label }}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+      {% for row in rows %}
+      {% set i = loop.index0 %}
+      <tr{% if not row.get('id') %} class="measure-new"{% endif %}>
+        <td class="num">{{ loop.index }}<input type="hidden" name="m_id" value="{{ row.get('id', '') }}"></td>
+        {% for name, label, kind in measure_fields %}
+        {% set err = row_errors.get((i, name)) %}
+        <td data-label="{{ label }}" class="m-{{ kind }}{% if err %} has-error{% endif %}">
+          <input name="m_{{ name }}" value="{{ row.get(name, '') }}"
+                 aria-label="Row {{ loop.index }}: {{ label }}"
+                 {% if kind != 'text' %}inputmode="decimal" autocomplete="off"{% endif %}
+                 {% if kind == 'freq' %}placeholder="145.500"{% endif %}>
+          {% if err %}<p class="field-error">{{ err }}</p>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="field-help">Need more rows? Save, then edit: three empty rows are always offered.</p>
+  </details>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{{ 'Save' if entry else 'Save entry' }}</button>
+    <a class="btn btn-quiet" href="{{ url_for('journal.view', record_id=entry.id) if entry else url_for('journal.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

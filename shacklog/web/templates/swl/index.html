@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Listening log{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Listening log", "Stations, aircraft, satellites and beacons heard. All times UTC.") %}
+  <a class="btn btn-primary" href="{{ url_for('swl.new') }}">Log something heard</a>
+  <a class="btn" href="{{ url_for('swl.export_csv') }}?{{ query_string() }}">Export CSV</a>
+  <a class="btn btn-quiet" href="{{ url_for('map.index', layer='swl') }}&{{ query_string() }}">Show on map</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, saved, 'swl') }}
+{{ count_line(page, 'entries') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('time', 'Date & time UTC', sort_key, sort_dir) }}
+    {{ sort_th('heard', 'Heard', sort_key, sort_dir) }}
+    {{ sort_th('freq', 'MHz', sort_key, sort_dir, 'num') }}
+    <th>Mode</th>
+    {{ sort_th('category', 'Category', sort_key, sort_dir) }}
+    <th>Description</th>
+    <th>Signal</th>
+    <th>Receiver</th>
+    {% if fresult.distance is not none %}
+      {{ sort_th('distance', 'km from ' ~ (fresult.center_label or 'point'), sort_key, sort_dir, 'num') }}
+    {% else %}
+      {{ sort_th('dist', 'km', sort_key, sort_dir, 'num') }}
+    {% endif %}
+  </tr></thead>
+  <tbody>
+  {% for e, dist in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="num" data-label="UTC">{{ e.time_utc|dt }}</td>
+    <td class="primary" data-label="Heard"><a class="rowlink{% if e.category in ('amateur', 'repeater') %} call{% endif %}" href="{{ url_for('swl.view', record_id=e.id) }}">{{ e.heard or (e.category|label(SWL_CATEGORIES)) }}</a></td>
+    <td class="num" data-label="MHz">{{ e.freq_mhz|freq }}</td>
+    <td data-label="Mode">{{ e.mode or '' }} <span class="muted">{{ e.band or '' }}</span></td>
+    <td data-label="Category">{{ e.category|label(SWL_CATEGORIES) }}</td>
+    <td class="wrap" data-label="Description">{{ e.description or '' }}</td>
+    <td data-label="Signal">{{ e.signal or '' }}</td>
+    <td data-label="Receiver">{{ e.receiver.name if e.receiver else '' }}</td>
+    <td class="num" data-label="Distance">{{ dist|km }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("Nothing heard matches these filters.", url_for('swl.index'), "Clear filters") }}
+{% else %}
+  {{ empty("The listening log is empty. Log what you hear on the SDR or the handheld: hams, repeaters, airband, weather satellites.", url_for('swl.new'), "Log something heard") }}
+{% endif %}
+{% endblock %}

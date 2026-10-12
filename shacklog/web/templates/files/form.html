@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_form %}
+{% block title %}Edit {{ f.display_name() }}{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Edit “{{ f.display_name() }}”</h1></div>
+<p class="muted small">{{ f.filename }} · {{ f.size|filesize }}. The file itself never changes; only its description does.</p>
+{{ render_form(sections, values, errors, choices, submit='Save', cancel_url=url_for('files.view', record_id=f.id)) }}
+{% endblock %}

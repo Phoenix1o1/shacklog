@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}{% if q %}Search: {{ q }}{% else %}Search{% endif %}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Search", "Everything in this logbook: logs, repeaters, equipment, contacts and the text inside library files.") %}{% endcall %}
+
+<form class="search-big" action="{{ url_for('search.index') }}" method="get" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Callsign, frequency, locator, word…" aria-label="Search" autocapitalize="off" spellcheck="false" {% if not q %}autofocus{% endif %}>
+  {% if kind != 'all' %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+  <button class="btn btn-primary" type="submit">Search</button>
+</form>
+
+{% if shortcuts.any %}
+<div class="shortcuts">
+  {% if shortcuts.call %}{% set c = shortcuts.call %}
+  <section class="panel">
+    <h2><span class="call">{{ c.call }}</span></h2>
+    <p class="small">
+      {% if c.qsos %}Worked {{ c.qsos }}×{% if c.last %}, last {{ c.last.time_on|dt }} UTC on {{ c.last.band or '' }} {{ display_mode(c.last.mode, c.last.submode) }}{% endif %}.{% endif %}
+      {% if c.heard %}Heard {{ c.heard }}× in the listening log.{% endif %}
+      {% if c.contact and c.contact.name %}{{ c.contact.name }}{% if c.contact.qth %}, {{ c.contact.qth }}{% endif %}.{% endif %}
+    </p>
+    <p>
+      <a class="btn btn-small btn-primary" href="{{ url_for('contacts.callsign', call=c.call) }}">All about {{ c.call }}</a>
+      {% if c.qsos %}<a class="btn btn-small" href="{{ url_for('qsos.index', call=c.call) }}">QSOs with {{ c.call }}</a>{% endif %}
+      {% if c.heard %}<a class="btn btn-small" href="{{ url_for('swl.index', heard=c.call) }}">Heard</a>{% endif %}
+    </p>
+  </section>
+  {% endif %}
+
+  {% if shortcuts.freq %}{% set fq = shortcuts.freq %}
+  <section class="panel">
+    <h2>{{ fq.mhz|freq }} MHz{% if fq.band %} <span class="muted small">{{ fq.band }}</span>{% endif %}</h2>
+    {% if fq.service and fq.service[0] != 'amateur' %}<p class="small muted">{{ fq.service[1] }}</p>{% endif %}
+    {% if fq.repeaters %}
+    <h3>Repeaters within ±5 kHz</h3>
+    <ul>
+      {% for r in fq.repeaters %}
+      <li><a href="{{ url_for('repeaters.view', record_id=r.id) }}">{{ r.name }}</a>
+        <span class="muted small">{{ r.callsign or '' }} {{ r.ident or '' }} · out {{ r.output_mhz|freq }}{% if r.input_mhz %} / in {{ r.input_mhz|freq }}{% endif %}{% if r.ctcss_up %} · {{ '%g'|format(r.ctcss_up) }} Hz{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if fq.channels %}
+    <h3>Radio channels</h3>
+    <ul>
+      {% for ch, cfg in fq.channels %}
+      <li><a href="{{ url_for('radio.view', record_id=cfg.id) }}">{{ cfg.title }}</a>
+        <span class="muted small">#{{ ch.location }} {{ ch.name or '' }}{% if cfg.is_current %} · current{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if not fq.repeaters and not fq.channels %}<p class="small muted">No repeater or radio channel on this frequency.</p>{% endif %}
+    <p>
+      <a class="btn btn-small" href="{{ url_for('swl.index', fmin=fq.lo, fmax=fq.hi) }}">Heard on it{% if fq.swl %} ({{ fq.swl }}){% endif %}</a>
+      <a class="btn btn-small" href="{{ url_for('swl.new', freq='%.4f'|format(fq.mhz)) }}">Log something heard</a>
+      {% if fq.qsos %}<span class="small muted">{{ fq.qsos }} QSO{{ 's' if fq.qsos != 1 }} on this frequency.</span>{% endif %}
+    </p>
+  </section>
+  {% endif %}
+
+  {% if shortcuts.locator %}{% set lc = shortcuts.locator %}
+  <section class="panel">
+    <h2>Locator {{ lc.locator }}</h2>
+    <p class="small muted">Centre {{ '%.4f'|format(lc.lat) }}, {{ '%.4f'|format(lc.lon) }}.</p>
+    <p>
+      <a class="btn btn-small" href="{{ url_for('qsos.index', near=lc.locator, radius=lc.radius) }}">Show QSOs near {{ lc.locator }}</a>
+      <a class="btn btn-small" href="{{ url_for('repeaters.index', near=lc.locator, radius=lc.radius) }}">Show repeaters near {{ lc.locator }}</a>
+      <a class="btn btn-small" href="{{ url_for('swl.index', near=lc.locator, radius=lc.radius) }}">Heard near {{ lc.locator }}</a>
+      <a class="btn btn-small btn-quiet" href="{{ url_for('map.index', layer='qso', near=lc.locator, radius=lc.radius) }}">On the map</a>
+    </p>
+    <p class="small muted">Within {{ lc.radius }} km; change the radius on the list page.</p>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if q %}
+<nav aria-label="Result types">
+<ul class="kind-tabs">
+  {% for key, label, _e in kinds %}
+  {% set n = results.counts.get(key, 0) %}
+  {% if key == 'all' or n or key == kind %}
+  <li><a href="{{ url_for('search.index', q=q, kind=key) }}" {% if key == kind %}aria-current="true"{% endif %}>{{ label }} <span class="small">{{ n }}{% if key == 'all' and results.capped %}+{% endif %}</span></a></li>
+  {% endif %}
+  {% endfor %}
+</ul>
+</nav>
+
+{% if results.hits %}
+<ul class="search-hits">
+  {% for hit in results.hits %}
+  {% set url = entity_url(hit.entity, hit.entity_id) %}
+  <li>
+    <span class="hit-kind">{{ labels.get(hit.entity, hit.entity) }}</span>
+    {% if url %}<a class="hit-title" href="{{ url }}">{{ hit.title or '(untitled)' }}</a>{% else %}<span class="hit-title">{{ hit.title or '(untitled)' }}</span>{% endif %}
+    {% if hit.snippet %}<p class="hit-snip">{{ hit.snippet|highlight }}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% if results.pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if results.page > 1 %}<a class="btn btn-quiet" href="{{ page_url(results.page - 1) }}" rel="prev">Previous</a>{% endif %}
+  <span>Page {{ results.page }} of {{ results.pages }}</span>
+  {% if results.page < results.pages %}<a class="btn btn-quiet" href="{{ page_url(results.page + 1) }}" rel="next">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% if results.capped %}<p class="small muted">Showing the best {{ max_hits }} matches. Add a word to narrow the search.</p>{% endif %}
+{% elif not shortcuts.any %}
+<div class="empty">
+  <p>Nothing found for “{{ q }}”{% if kind != 'all' %} in this section{% endif %}.</p>
+  <p class="small">Words match from their start: “IK2” finds IK2ABC, “dipo” finds dipole. Try fewer or shorter words.</p>
+  {% if kind != 'all' %}<a class="btn" href="{{ url_for('search.index', q=q) }}">Search everywhere</a>{% endif %}
+</div>
+{% else %}
+<p class="muted">No text matches beyond the shortcuts above.</p>
+{% endif %}
+{% else %}
+<section class="panel search-help prose">
+  <h2>What can be searched</h2>
+  <ul>
+    <li><b>Callsigns</b> in QSOs, the listening log and contacts: <code>IK2ABC</code>, or just <code>IK2</code>.</li>
+    <li><b>Frequencies</b>: <code>145.650</code>, <code>145,65</code> or <code>430500</code> (kHz) show the repeaters and radio channels there.</li>
+    <li><b>Locators</b>: <code>JN45</code> or <code>JN45ol</code> offer QSOs and repeaters nearby.</li>
+    <li><b>Words</b> in notes, comments, journal entries, equipment specs, repeater details and the text inside PDF manuals and text files in the library.</li>
+  </ul>
+  <p class="small muted">Lists have their own filters too (band, mode, dates, distance from a station…), and filters can be saved.</p>
+</section>
+{% endif %}
+{% endblock %}

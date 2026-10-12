@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ entry.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% macro mhz(v) %}{% if v is not none %}{{ '%.3f'|format(v) }} MHz{% endif %}{% endmacro %}
+{% macro num(v, fmt='%g') %}{% if v is not none %}{{ fmt|format(v) }}{% endif %}{% endmacro %}
+{% block content %}
+{% call page_head(entry.title, (entry.time_utc|dt) ~ ' UTC · ' ~ (entry.kind|label(JOURNAL_KINDS))) %}
+  <a class="btn btn-primary" href="{{ url_for('journal.edit', record_id=entry.id) }}">Edit</a>
+  {% if entry.kind == 'test' %}<a class="btn" href="#sweeps">Attach a sweep</a>{% endif %}
+  {{ delete_button(url_for('journal.delete', record_id=entry.id), 'this entry') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    {% if entry.body %}
+    <section class="panel">
+      <div class="prose">{{ entry.body|textblock }}</div>
+      {{ tag_list(entry.tags) }}
+    </section>
+    {% endif %}
+
+    {% if rows or entry.kind == 'test' %}
+    <section class="panel" id="measurements">
+      <h2>Measurements</h2>
+      {% if rows %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr>
+          <th class="num" aria-label="Line">#</th>
+          <th class="num">MHz</th><th class="num">SWR</th><th class="num">Fwd W</th><th class="num">Ref W</th>
+          <th class="num">RL dB</th><th class="num">R + jX (Ω)</th><th>Note</th>
+        </tr></thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="num primary" data-label="MHz">{{ r.m.freq_mhz|freq(3) }}</td>
+          <td class="num" data-label="SWR">{% if r.swr is not none %}{{ '%.2f'|format(r.swr) }}{% if r.computed %} <span class="muted small" title="Computed from forward and reflected power">calc.</span>{% endif %}{% endif %}</td>
+          <td class="num" data-label="Fwd W">{{ num(r.m.power_fwd_w) }}</td>
+          <td class="num" data-label="Ref W">{{ num(r.m.power_ref_w) }}</td>
+          <td class="num" data-label="RL dB">{{ num(r.m.return_loss_db, '%.1f') }}</td>
+          <td class="num" data-label="R + jX">{% if r.m.r_ohm is not none or r.m.x_ohm is not none %}{{ num(r.m.r_ohm, '%.1f') or '?' }} {{ '−' if (r.m.x_ohm or 0) < 0 else '+' }} j{{ '%.1f'|format((r.m.x_ohm or 0)|abs) }}{% endif %}</td>
+          <td class="wrap" data-label="Note">{{ r.m.note or '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <p class="muted">No readings yet. <a href="{{ url_for('journal.edit', record_id=entry.id) }}">Add measurements</a> from an SWR meter or the NanoVNA markers.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel" id="sweeps">
+      <h2>NanoVNA sweeps</h2>
+      {% for sw in sweeps %}
+      <article class="sweep">
+        <h3><a href="{{ url_for('files.view', record_id=sw.file.id) }}">{{ sw.file.display_name() }}</a>
+          <span class="muted small">{{ sw.file.filename }}</span></h3>
+        {% if sw.state == 'ok' %}
+          {% set sm = sw.summary %}
+          {{ facts([
+            ('Resonance (min SWR)', mhz(sm.get('freq_min_mhz'))),
+            ('Min SWR', num(sm.get('min_swr'), '%.2f')),
+            ('SWR ≤ 2 from', mhz(sm.get('bw_swr2_low_mhz'))),
+            ('SWR ≤ 2 to', mhz(sm.get('bw_swr2_high_mhz'))),
+            ('SWR ≤ 2 bandwidth', ('%.0f kHz'|format((sm.get('bw_swr2_high_mhz') - sm.get('bw_swr2_low_mhz')) * 1000)) if sm.get('bw_swr2_low_mhz') is not none and sm.get('bw_swr2_high_mhz') is not none else None),
+            ('Impedance at resonance', (num(sm.get('r_ohm'), '%.1f') ~ (' − j' if (sm.get('x_ohm') or 0) < 0 else ' + j') ~ ('%.1f'|format((sm.get('x_ohm') or 0)|abs)) ~ ' Ω') if sm.get('r_ohm') is not none else None),
+            ('Sweep range', (mhz(sm.get('start_mhz')) ~ ' – ' ~ mhz(sm.get('stop_mhz'))) if sm.get('start_mhz') is not none else None),
+            ('Points', sm.get('points')),
+          ]) }}
+          {% if sw.svg %}<figure class="sweep-figure">{{ sw.svg }}<figcaption class="small muted">SWR across the sweep{% if sw.shade %}; shaded: {% for lo, hi in sw.shade %}{{ '%g'|format(lo) }}–{{ '%g'|format(hi) }} MHz{{ ', ' if not loop.last }}{% endfor %} (2 m and 70 cm plans){% endif %}.</figcaption></figure>{% endif %}
+          {% if sm.get('bw_swr2_low_mhz') is none and sm.get('min_swr') is not none and sm.get('min_swr') > 2 %}<p class="small muted">SWR stays above 2 over the whole sweep.</p>{% endif %}
+        {% elif sw.state == 'missing' %}
+          <p class="flash flash-warn">The file is in the library but its bytes live on another instance.
+            <a href="{{ url_for('files.view', record_id=sw.file.id) }}">Open it</a> to fetch it from the hub.</p>
+        {% elif sw.state == 'unavailable' %}
+          <p class="muted">Sweep plots aren't available in this build. <a href="{{ url_for('files.download', record_id=sw.file.id) }}">Download the file</a>.</p>
+        {% else %}
+          <p class="flash flash-error">Couldn't read this sweep as a Touchstone file ({{ sw.error }}). Export it again from the NanoVNA as .s1p, or <a href="{{ url_for('files.download', record_id=sw.file.id) }}">download it</a> to check.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+
+      <form method="post" action="{{ url_for('links.attach_upload') }}" enctype="multipart/form-data" class="sweep-attach">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="a_type" value="journal">
+        <input type="hidden" name="a_id" value="{{ entry.id }}">
+        <input type="hidden" name="category" value="sweep">
+        <input type="hidden" name="role" value="sweep">
+        <input type="hidden" name="back" value="{{ request.path }}#sweeps">
+        <label for="sweep-files"><b>Attach a NanoVNA sweep (.s1p)</b></label>
+        <p class="field-help">Save the sweep from NanoVNA-Saver or the device's SD card as Touchstone (.s1p or .s2p). The SWR curve, resonance and bandwidth appear here.</p>
+        <div class="sweep-attach-row">
+          <input id="sweep-files" type="file" name="files" accept=".s1p,.s2p,.S1P,.S2P" multiple required>
+          <button class="btn btn-primary">Attach sweep</button>
+        </div>
+      </form>
+    </section>
+
+    {{ links_panel('journal', entry, linked, 'Photos, sweeps & linked records') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Details</h2>
+      {{ facts([
+        ('Kind', entry.kind|label(JOURNAL_KINDS)),
+        ('Equipment', entry.equipment.name if entry.equipment else None),
+        ('Station', entry.station.name if entry.station else None),
+      ]) }}
+      {% if entry.equipment %}<p class="small"><a href="{{ url_for('equipment.view', record_id=entry.equipment.id) }}">Open {{ entry.equipment.name }}</a>
+        · <a href="{{ url_for('journal.index', equipment=entry.equipment.id) }}">Its journal</a></p>{% endif %}
+      {% if not entry.body %}{{ tag_list(entry.tags) }}{% endif %}
+    </section>
+    {{ record_meta(entry) }}
+  </aside>
+</div>
+{% endblock %}

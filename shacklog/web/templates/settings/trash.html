@@ -1,0 +1,45 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, pagination, count_line, empty %}
+{% from "_forms.html" import csrf %}
+{% set settings_tab = 'trash' %}
+{% block title %}Trash{% endblock %}
+{% block settings_body %}
+{% call page_head("Trash", "Deleted records, newest first. Nothing is ever purged: restore anything at any time.") %}{% endcall %}
+
+<ul class="kind-tabs">
+  <li><a href="{{ url_for('settings.trash') }}" {% if not kind %}aria-current="true"{% endif %}>All</a></li>
+  {% for entity, label in types if counts.get(entity) %}
+  <li><a href="{{ url_for('settings.trash', type=entity) }}" {% if kind == entity %}aria-current="true"{% endif %}>{{ label }} ({{ counts[entity] }})</a></li>
+  {% endfor %}
+</ul>
+<p class="small muted">Deletions sync like any other change, so a record deleted on one instance moves to the trash on all of them. Restoring it brings it back everywhere.</p>
+
+{{ count_line(page, 'deleted records') }}
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr><th class="num">#</th><th>Record</th><th>Type</th><th>Deleted UTC</th><th></th></tr></thead>
+  <tbody>
+  {% for entity, obj in page.items %}
+  <tr class="deleted-row-soft">
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary wrap" data-label="Record">{{ obj.display_name() }}</td>
+    <td data-label="Type">{{ obj.__label__ }}</td>
+    <td class="num" data-label="Deleted">{{ obj.deleted_at|dt }}</td>
+    <td data-label="">
+      <form method="post" action="{{ url_for('settings.restore', entity=entity, record_id=obj.id) }}" class="inline-form">
+        {{ csrf() }}
+        <input type="hidden" name="back" value="{{ request.full_path }}">
+        <button class="btn btn-small">Restore</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% else %}
+  {{ empty("The trash is empty. Deleted records show up here and can be restored.") }}
+{% endif %}
+{% endblock %}

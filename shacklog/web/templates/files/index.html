@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Library{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Library", "Manuals, datasheets, photos, sweeps and CHIRP files. Text inside PDFs and text files is searchable.") %}
+  <a class="btn btn-primary" href="{{ url_for('files.upload') }}">Add files</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, saved, 'file') }}
+{{ count_line(page, 'files') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('name', 'Title', sort_key, sort_dir) }}
+    <th>Category</th>
+    <th>File</th>
+    {{ sort_th('size', 'Size', sort_key, sort_dir, 'num') }}
+    <th>Inside</th>
+    <th class="num">Links</th>
+    {{ sort_th('new', 'Added (UTC)', sort_key, sort_dir) }}
+  </tr></thead>
+  <tbody>
+  {% for f, has_text in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary wrap" data-label="Title"><a class="rowlink" href="{{ url_for('files.view', record_id=f.id) }}">{{ f.display_name() }}</a>
+      {% if not present[f.id] %}<span class="badge badge-warn" title="The bytes are on another instance">on the hub</span>{% endif %}</td>
+    <td data-label="Category">{{ f.category|label(FILE_CATEGORIES) }}</td>
+    <td class="wrap small" data-label="File">{{ f.filename }}</td>
+    <td class="num" data-label="Size">{{ f.size|filesize }}</td>
+    <td data-label="Inside">{% if has_text %}<span class="badge badge-ok">searchable</span>{% endif %}</td>
+    <td class="num" data-label="Links">{{ links.get(f.id, '') }}</td>
+    <td class="num" data-label="Added">{{ f.created_at|day }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No files match these filters.", url_for('files.index'), "Clear filters") }}
+{% else %}
+  {{ empty("The library is empty. Add the TM-733 manual, a datasheet, antenna photos or NanoVNA sweeps.", url_for('files.upload'), "Add files") }}
+{% endif %}
+{% endblock %}

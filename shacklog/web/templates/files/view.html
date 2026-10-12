@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ f.display_name() }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(f.display_name(), (f.category|label(FILE_CATEGORIES)) ~ ' · ' ~ f.filename ~ ' · ' ~ (f.size|filesize)) %}
+  {% if present %}<a class="btn btn-primary" href="{{ url_for('files.download', record_id=f.id) }}">Download</a>{% endif %}
+  <a class="btn" href="{{ url_for('files.edit', record_id=f.id) }}">Edit details</a>
+  {{ delete_button(url_for('files.delete', record_id=f.id), 'this file') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    {% if not present %}
+    <section class="panel">
+      <h2>File not on this instance</h2>
+      <p>This library entry arrived by sync, but its bytes are stored on another ShackLog instance
+         (the hub, or the computer where it was added). The details below are complete; the content
+         can be fetched when the hub is reachable.</p>
+      {% if hub_configured %}
+      <form method="post" action="{{ url_for('files.fetch', record_id=f.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-primary">Fetch from hub</button>
+      </form>
+      {% else %}
+      <p class="muted">No hub is set up on this instance. Add one in <a href="{{ url_for('settings.sync') }}">Settings › Sync</a>, or import a bundle from the computer that has the file.</p>
+      {% endif %}
+    </section>
+    {% elif kind == 'image' %}
+    <section class="panel file-preview">
+      <a href="{{ url_for('files.raw', record_id=f.id) }}"><img src="{{ url_for('files.raw', record_id=f.id) }}" alt="{{ f.description or f.display_name() }}" loading="lazy"></a>
+    </section>
+    {% elif kind == 'pdf' %}
+    <section class="panel file-preview">
+      <iframe class="file-frame" src="{{ url_for('files.raw', record_id=f.id) }}" title="{{ f.display_name() }}"></iframe>
+      <p class="small muted">If the PDF doesn't show here (some phones can't), <a href="{{ url_for('files.raw', record_id=f.id) }}" target="_blank" rel="noopener">open it in a new tab</a> or download it.</p>
+    </section>
+    {% elif kind == 'text' %}
+    <section class="panel">
+      <h2>Contents</h2>
+      {% if is_markup %}<p class="small muted">Shown as source text. Web pages and SVG files are never opened inside ShackLog; download them to view.</p>{% endif %}
+      <pre class="file-text code">{{ preview }}</pre>
+      {% if preview_cut %}<p class="small muted">First {{ preview_lines }} lines. <a href="{{ url_for('files.download', record_id=f.id) }}">Download</a> for the whole file.</p>{% endif %}
+    </section>
+    {% else %}
+    <section class="panel">
+      <p class="muted">No preview for this kind of file ({{ f.mime or 'unknown type' }}). <a href="{{ url_for('files.download', record_id=f.id) }}">Download it</a> to open it.</p>
+    </section>
+    {% endif %}
+
+    {% if sweep and sweep.state == 'ok' %}
+    <section class="panel">
+      <h2>Sweep</h2>
+      {% set sm = sweep.summary %}
+      {{ facts([
+        ('Min SWR', ('%.2f'|format(sm.get('min_swr'))) if sm.get('min_swr') is not none else None),
+        ('At', ('%.3f MHz'|format(sm.get('freq_min_mhz'))) if sm.get('freq_min_mhz') is not none else None),
+        ('SWR ≤ 2', ('%.3f – %.3f MHz'|format(sm.get('bw_swr2_low_mhz'), sm.get('bw_swr2_high_mhz'))) if sm.get('bw_swr2_low_mhz') is not none and sm.get('bw_swr2_high_mhz') is not none else None),
+      ]) }}
+      {% if sweep.svg %}<figure class="sweep-figure">{{ sweep.svg }}</figure>{% endif %}
+    </section>
+    {% elif sweep and sweep.state == 'error' %}
+    <p class="flash flash-error">This looks like a sweep but couldn't be read as Touchstone ({{ sweep.error }}).</p>
+    {% endif %}
+
+    {{ links_panel('file', f, linked, 'Used by') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>About this file</h2>
+      {% if f.description %}<div class="prose">{{ f.description|textblock }}</div>{% endif %}
+      {{ facts([
+        ('Category', f.category|label(FILE_CATEGORIES)),
+        ('File name', f.filename),
+        ('Size', (f.size|filesize) ~ ' (' ~ '{:,}'.format(f.size or 0).replace(',', ' ') ~ ' bytes)'),
+        ('Type', f.mime),
+        ('Text search', ('Indexed, ' ~ '{:,}'.format(text_chars).replace(',', ' ') ~ ' characters') if text_chars else 'No text extracted'),
+        ('On this instance', 'Yes' if present else 'No, on another instance'),
+      ]) }}
+      <p class="small"><span class="muted">SHA-256</span><br><code class="hash">{{ f.sha256 }}</code></p>
+      {{ tag_list(f.tags, 'files.index') }}
+    </section>
+    {{ record_meta(f) }}
+  </aside>
+</div>
+{% endblock %}

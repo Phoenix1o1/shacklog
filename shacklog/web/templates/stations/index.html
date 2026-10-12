@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Stations{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Stations", "Places I operate from. Distances everywhere are measured from one of these.") %}
+  <a class="btn btn-primary" href="{{ url_for('stations.new') }}">Add station</a>
+  <a class="btn btn-quiet" href="{{ url_for('map.index', layer='station') }}">Show on map</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult) }}
+{{ count_line(page, 'stations') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('name', 'Name', sort_key, sort_dir) }}
+    {{ sort_th('kind', 'Kind', sort_key, sort_dir) }}
+    <th>Callsign</th>
+    <th>Locator</th>
+    <th>Place</th>
+    <th>Default radio · antenna</th>
+    {% if fresult.distance is not none %}{{ sort_th('distance', 'km from ' ~ fresult.center_label, sort_key, sort_dir, 'num') }}{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for st, dist in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary" data-label="Name"><a class="rowlink" href="{{ url_for('stations.view', record_id=st.id) }}"><b>{{ st.name }}</b></a>
+      {% if st.id == default_id %}<span class="badge badge-ok">default</span>{% endif %}
+      {% if reference and st.id == reference.id %}<span class="badge">reference</span>{% endif %}</td>
+    <td data-label="Kind">{{ st.kind|label(M.STATION_KINDS) }}</td>
+    <td data-label="Callsign" class="call">{{ st.callsign or '' }}</td>
+    <td data-label="Locator">{{ st.locator or '' }}</td>
+    <td class="wrap" data-label="Place">{{ st.location_name or '' }}{% if st.region or st.country %} <span class="muted">{{ [st.region, st.country]|select|join(', ') }}</span>{% endif %}</td>
+    <td data-label="Setup">{{ st.radio.name if st.radio else '' }}{% if st.radio and st.antenna %} · {% endif %}{{ st.antenna.name if st.antenna else '' }}</td>
+    {% if fresult.distance is not none %}<td class="num" data-label="Distance">{{ dist|km }}</td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No stations match these filters.", url_for('stations.index'), "Clear filters") }}
+{% else %}
+  {{ empty("No stations yet. Add home, a fixed location or a portable spot.", url_for('stations.new'), "Add station") }}
+{% endif %}
+{% endblock %}

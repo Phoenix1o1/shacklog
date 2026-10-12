@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_sections, csrf %}
+{% block title %}{{ title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+<form method="post" class="record-form">
+  {{ csrf() }}
+  {% if errors %}<p class="flash flash-error" role="alert">Check the highlighted fields.</p>{% endif %}
+  {{ render_sections(sections, values, errors, choices) }}
+  <datalist id="swl-modes">{% for m in modes %}<option value="{{ m }}">{% endfor %}</datalist>
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{{ 'Save' if entry else 'Log it' }}</button>
+    {% if not entry %}<button class="btn" type="submit" name="again" value="1">Log and start another</button>{% endif %}
+    <a class="btn btn-quiet" href="{{ url_for('swl.view', record_id=entry.id) if entry else url_for('swl.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

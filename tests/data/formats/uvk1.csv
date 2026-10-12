@@ -1,0 +1,7 @@
+﻿Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,RxDtcsCode,CrossMode,Mode,TStep,Skip,Power,Comment,URCALL,RPT1CALL,RPT2CALL,DVCODE,Bank
+1,R1 MI,145.612500,-,0.600000,Tone,156.7,88.5,023,NN,023,Tone->Tone,FM,12.50,,5.0W,IR2UFD Milano,,,,,Milano
+2,F1ZCQ,145.650000,-,0.600000,TSQL,88.5,88.5,023,NN,023,Tone->Tone,FM,12.50,,5.0W,Grenoble Chamrousse,,,,,Grenoble
+3,RU5 MI,430.150000,+,1.600000,Tone,71.9,88.5,023,NN,023,Tone->Tone,FM,12.50,,5.0W,Italian 70 cm,,,,,Milano
+4,S20,145.500000,,0.000000,,88.5,88.5,023,NN,023,Tone->Tone,FM,12.50,,1.5W,Calling,,,,,
+5,ISS,145.800000,off,0.000000,,88.5,88.5,023,NN,023,Tone->Tone,FM,5.00,S,5.0W,ISS downlink RX only,,,,,Sat
+6,,,,,,,,,,,,,,,,,,,,,

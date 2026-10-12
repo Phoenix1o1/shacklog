@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_sections, csrf %}
+{% block title %}Add files{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Add files to the library</h1></div>
+<form method="post" enctype="multipart/form-data" class="record-form">
+  {{ csrf() }}
+  {% if errors %}<p class="flash flash-error" role="alert">Check the highlighted fields.</p>{% endif %}
+  <fieldset class="form-section">
+    <legend>Files</legend>
+    <div class="grid">
+      <div class="field w-full{% if errors.get('files') %} has-error{% endif %}">
+        <label for="f-files">Choose one or more files <span class="req" aria-label="required">*</span></label>
+        <div class="upload-files"><input id="f-files" type="file" name="files" multiple required></div>
+        {% if errors.get('files') %}<p class="field-error">{{ errors['files'] }}</p>{% endif %}
+        <p class="field-help">A file already in the library (same content) isn't stored twice: the existing entry is kept. Text inside PDFs and text files becomes searchable.</p>
+      </div>
+    </div>
+  </fieldset>
+  {{ render_sections(sections, values, errors, choices) }}
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Upload</button>
+    <a class="btn btn-quiet" href="{{ url_for('files.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, facts %}
+{% from "_forms.html" import csrf %}
+{% set settings_tab = 'index' %}
+{% block title %}Settings{% endblock %}
+{% block settings_body %}
+{% call page_head("Settings", "These settings belong to this instance only and never sync.") %}{% endcall %}
+
+<div class="settings-grid">
+  <div>
+    <form method="post" class="record-form">
+      {{ csrf() }}
+      <input type="hidden" name="action" value="general">
+      <fieldset class="form-section">
+        <legend>This instance</legend>
+        <div class="grid">
+          <div class="field w-full"><label for="instance_name">Name of this instance</label>
+            <input id="instance_name" name="instance_name" value="{{ instance_name }}" maxlength="120" required>
+            <p class="field-help">Shown in sync status and conflict reports, e.g. “Desktop”, “Laptop”, “Proxmox”.</p></div>
+          <div class="field w-half"><label for="default_station_id">Station for new entries</label>
+            <select id="default_station_id" name="default_station_id">
+              <option value="">First home station</option>
+              {% for value, label in stations %}<option value="{{ value }}" {% if value == default_station_id %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="field w-half"><label for="reference_station_id">“Distance from” point in filters</label>
+            <select id="reference_station_id" name="reference_station_id">
+              <option value="">Home station</option>
+              {% for value, label in stations %}<option value="{{ value }}" {% if value == reference_station_id %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="field w-half"><label for="page_size">Rows per page in lists</label>
+            <select id="page_size" name="page_size">
+              {% for n in page_sizes %}<option value="{{ n }}" {% if n == page_size %}selected{% endif %}>{{ n }}</option>{% endfor %}
+            </select></div>
+        </div>
+      </fieldset>
+      <div class="form-actions"><button class="btn btn-primary">Save settings</button></div>
+    </form>
+
+    <section class="panel" id="password">
+      <h2>Password</h2>
+      {% if desktop %}
+        <p>{% if has_password %}A password is set.{% if require_login_local %} ShackLog asks for it on this computer too.{% else %} It's only needed when ShackLog runs as a server.{% endif %}{% else %}No password is set. In desktop mode only this computer can open ShackLog, so a password is optional.{% endif %}</p>
+      {% else %}
+        <p>This instance runs as a server, so the password is always required to sign in.</p>
+      {% endif %}
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="password">
+        <div class="field w-half"><label for="password-new">{{ 'New password' if has_password else 'Password' }} ({{ min_password }}+ characters)</label>
+          <input id="password-new" type="password" name="password" autocomplete="new-password" minlength="{{ min_password }}" required></div>
+        <div class="field w-half"><label for="password2">Repeat password</label>
+          <input id="password2" type="password" name="password2" autocomplete="new-password" minlength="{{ min_password }}" required></div>
+        {% if desktop %}
+        <div class="field w-full field-bool"><label><input type="checkbox" name="require_login_local" value="1" {% if require_login_local %}checked{% endif %}> Ask for the password on this computer too</label></div>
+        {% endif %}
+        <div class="form-actions"><button class="btn btn-primary">{{ 'Change password' if has_password else 'Set password' }}</button></div>
+      </form>
+      {% if desktop and has_password %}
+      <div class="settings-row">
+        <form method="post" class="inline-form">
+          {{ csrf() }}
+          <input type="hidden" name="action" value="login_local">
+          {% if require_login_local %}
+          <button class="btn">Stop asking for the password on this computer</button>
+          {% else %}
+          <input type="hidden" name="require_login_local" value="1">
+          <button class="btn">Ask for the password on this computer</button>
+          {% endif %}
+        </form>
+        <form method="post" class="inline-form" onsubmit="return confirm('Remove the password? Anyone using this computer can then open ShackLog.');">
+          {{ csrf() }}
+          <input type="hidden" name="action" value="remove_password">
+          <button class="btn btn-danger">Remove password</button>
+        </form>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Search index</h2>
+      <p>Search keeps its own index, updated with every change. If results ever look incomplete, rebuild it from the data. Nothing else changes.</p>
+      <form method="post">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="rebuild_search">
+        <button class="btn">Rebuild search index</button>
+      </form>
+    </section>
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>About</h2>
+      {{ facts([
+        ('Version', app_name ~ ' ' ~ about.version),
+        ('Mode', about.mode),
+        ('Data folder', about.data_dir),
+        ('Database', about.database),
+        ('Instance ID', about.instance_id),
+        ('Database version', about.schema_version),
+      ]) }}
+      <p class="small muted">Back up by copying the whole data folder, or use <a href="{{ url_for('settings.data') }}">Import, export &amp; backups</a>.</p>
+    </section>
+    {% if can_quit %}
+    <section class="panel">
+      <h2>Stop {{ app_name }}</h2>
+      <p>Closing the browser tab leaves {{ app_name }} running in the background. This stops it.</p>
+      <form method="post">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="quit">
+        <button class="btn btn-danger">Quit {{ app_name }}</button>
+      </form>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

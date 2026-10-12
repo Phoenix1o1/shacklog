@@ -1,0 +1,28 @@
+{% extends "settings/_layout.html" %}
+{% set settings_tab = 'data' %}
+{% block title %}Import finished{% endblock %}
+{% block settings_body %}
+<div class="page-head"><h1>Import finished</h1></div>
+<section class="panel">
+  <p>{{ filename }}{% if summary.source_instance_name %} · from {{ summary.source_instance_name }}{% endif %}{% if summary.bundle_created %} · made {{ summary.bundle_created|replace('T', ' ') }} UTC{% endif %}</p>
+  {% if summary.same_instance %}<p class="flash flash-warn">This file came from this very instance (an older copy of it). Only versions missing here were taken.</p>{% endif %}
+  <ul class="tally">
+    <li><b>{{ summary.inserted }}</b><span>records added</span></li>
+    <li><b>{{ summary.updated }}</b><span>updated to a newer version</span></li>
+    <li><b>{{ summary.unchanged }}</b><span>already up to date</span></li>
+    <li><b>{{ summary.conflicts }}</b><span>older versions kept as conflicts</span></li>
+    {% if summary.blobs_added is defined %}<li><b>{{ summary.blobs_added }}</b><span>library files added</span></li>{% endif %}
+  </ul>
+  {% if summary.conflicts %}<p><a href="{{ url_for('settings.conflicts') }}">Review the conflicts</a> to see both versions.</p>{% endif %}
+  {% if summary.get('blobs_missing') %}
+  <p class="flash flash-warn">{{ summary.blobs_missing|length }} library {{ 'file is' if summary.blobs_missing|length == 1 else 'files are' }} still missing here. They arrive with the next sync or a bundle from the computer that has them.</p>
+  {% endif %}
+  {% if summary.get('blobs_damaged') %}
+  <p class="flash flash-error">{{ summary.blobs_damaged|length }} files in the bundle were damaged and were skipped. Export the bundle again.</p>
+  {% endif %}
+  {% if summary.errors %}<p class="flash flash-warn">{{ summary.errors }} records had unreadable values; they were kept under Conflicts.</p>{% endif %}
+  <p class="small muted">A backup was made first: {{ summary.backup }}.</p>
+</section>
+<p><a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Open the dashboard</a>
+   <a class="btn" href="{{ url_for('settings.data') }}">Back to import, export &amp; backups</a></p>
+{% endblock %}

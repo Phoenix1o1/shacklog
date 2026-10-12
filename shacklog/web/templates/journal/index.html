@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Journal{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Journal", "Antenna builds, SWR readings and NanoVNA sweeps, and the station diary.") %}
+  <a class="btn btn-primary" href="{{ url_for('journal.new', kind='test') }}">New test entry</a>
+  <a class="btn" href="{{ url_for('journal.new', kind='diary') }}">New diary entry</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, saved, 'journal') }}
+{{ count_line(page, 'entries') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('time', 'Date UTC', sort_key, sort_dir) }}
+    {{ sort_th('kind', 'Kind', sort_key, sort_dir) }}
+    {{ sort_th('title', 'Title', sort_key, sort_dir) }}
+    <th>Equipment</th>
+    <th class="num">Min SWR</th>
+    <th>Sweeps</th>
+  </tr></thead>
+  <tbody>
+  {% for e in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="num" data-label="UTC">{{ e.time_utc|dt }}</td>
+    <td data-label="Kind"><span class="badge{% if e.kind == 'test' %} badge-ok{% endif %}">{{ 'Test' if e.kind == 'test' else 'Diary' }}</span></td>
+    <td class="primary wrap" data-label="Title"><a class="rowlink" href="{{ url_for('journal.view', record_id=e.id) }}">{{ e.title }}</a></td>
+    <td data-label="Equipment">{% if e.equipment %}<a href="{{ url_for('equipment.view', record_id=e.equipment.id) }}">{{ e.equipment.name }}</a>{% endif %}</td>
+    <td class="num" data-label="Min SWR">{% if e.id in min_swr %}{{ '%.2f'|format(min_swr[e.id][0]) }}{% if min_swr[e.id][1] == 'sweep' %} <span class="muted small">sweep</span>{% endif %}{% endif %}</td>
+    <td data-label="Sweeps">{% if sweeps.get(e.id) %}{{ sweeps[e.id] }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No journal entries match these filters.", url_for('journal.index'), "Clear filters") }}
+{% else %}
+  {{ empty("The journal is empty. Record an antenna build with its SWR readings, attach a NanoVNA sweep, or note a change in the shack.", url_for('journal.new', kind='test'), "New test entry") }}
+{% endif %}
+{% endblock %}

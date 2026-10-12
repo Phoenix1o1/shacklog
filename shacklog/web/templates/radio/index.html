@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Radio configurations{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Radio configurations", "CHIRP snapshots of each radio: what was programmed, when, and with which settings.") %}
+  <a class="btn btn-primary" href="{{ url_for('radio.new') }}">Save a configuration</a>
+  <a class="btn" href="{{ url_for('radio.channels') }}">Find a channel</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult) }}
+{{ count_line(page, 'configurations') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('title', 'Title', sort_key, sort_dir) }}
+    {{ sort_th('radio', 'Radio', sort_key, sort_dir) }}
+    <th>Edition / bank</th>
+    <th>Firmware</th>
+    {{ sort_th('date', 'Date', sort_key, sort_dir, 'num') }}
+    <th class="num">Channels</th>
+    <th>Files</th>
+  </tr></thead>
+  <tbody>
+  {% for c in page.items %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary" data-label="Title"><a class="rowlink" href="{{ url_for('radio.view', record_id=c.id) }}"><b>{{ c.title }}</b></a>{% if c.is_current %} <span class="badge badge-ok">current</span>{% endif %}</td>
+    <td data-label="Radio">{% if c.radio %}<a href="{{ url_for('equipment.view', record_id=c.radio.id) }}">{{ c.radio.name }}</a>{% endif %}</td>
+    <td data-label="Edition">{{ c.edition or '' }}</td>
+    <td data-label="Firmware">{{ c.firmware or '' }}</td>
+    <td class="num" data-label="Date">{{ c.config_date|day }}</td>
+    <td class="num" data-label="Channels">{{ counts.get(c.id, 0) or '' }}</td>
+    <td data-label="Files">{{ ['img' if c.image_file_id else None, 'csv' if c.csv_file_id else None]|select|join(' · ') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No configurations match these filters.", url_for('radio.index'), "Clear filters") }}
+{% else %}
+  {{ empty("No configurations saved yet. After programming a radio with CHIRP, save the image and the CSV here.", url_for('radio.new'), "Save a configuration") }}
+{% endif %}
+{% endblock %}

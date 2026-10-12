@@ -1,0 +1,105 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head %}
+{% from "_forms.html" import csrf %}
+{% set settings_tab = 'data' %}
+{% block title %}Import, export & backups{% endblock %}
+{% block settings_body %}
+{% call page_head("Import, export & backups", "Move the whole logbook between computers, bring in other loggers' files, and keep backups.") %}{% endcall %}
+
+<div class="settings-grid">
+  <div>
+    <section class="panel">
+      <h2>Bundle: everything in one file</h2>
+      <p>A bundle is a zip holding the database and every library file. Use it for a computer that never reaches the hub, or as a complete archive on a USB stick.</p>
+      <form method="post">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="export">
+        <button class="btn btn-primary">Export bundle</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Import a bundle or database</h2>
+      <div class="prose">
+        <p>Pick a bundle (<code>.zip</code>) made by “Export bundle”, or a <code>shacklog.sqlite3</code> database file from another instance. Its records are merged into this one:</p>
+        <ul>
+          <li>records missing here are added;</li>
+          <li>when both have the same record, the newer version wins and the other is kept under <a href="{{ url_for('settings.conflicts') }}">Conflicts</a>;</li>
+          <li>nothing here is deleted, and importing the same file twice changes nothing.</li>
+        </ul>
+        <p>A backup of this database is made first. A file from a newer {{ app_name }} is refused until you update this one.</p>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="import">
+        <div class="field w-full"><label for="file">Bundle or database file</label>
+          <input id="file" type="file" name="file" accept=".zip,.sqlite3,.sqlite,.db" required></div>
+        <div class="form-actions"><button class="btn btn-primary">Import and merge</button></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Other loggers and radios</h2>
+      <ul class="linked-list">
+        <li><a href="{{ url_for('qsos.import_adif') }}">Import ADIF</a><span class="muted">QSOs from Wavelog, QLog, HAMRS, LoTW…</span></li>
+        <li><a href="{{ url_for('qsos.export_adi') }}">Export ADIF</a><span class="muted">every QSO, for other loggers and uploads</span></li>
+        <li><a href="{{ url_for('repeaters.import_chirp') }}">Import CHIRP CSV</a><span class="muted">repeater lists and radio memories</span></li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Import history</h2>
+      {% if history %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr><th class="num">#</th><th>When UTC</th><th>File</th><th>Kind</th><th>Result</th></tr></thead>
+        <tbody>
+        {% for entry, sm in history %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="num" data-label="When">{{ entry.at|dt }}</td>
+          <td class="primary wrap" data-label="File">{{ entry.filename or '—' }}</td>
+          <td data-label="Kind">{{ entry.kind }}</td>
+          <td class="wrap" data-label="Result">
+            {% if 'inserted' in sm %}{{ sm.inserted }} added, {{ sm.updated }} updated{% if sm.conflicts %}, <a href="{{ url_for('settings.conflicts') }}">{{ sm.conflicts }} conflicts</a>{% endif %}{% if sm.get('blobs_added') %}, {{ sm.blobs_added }} files{% endif %}
+            {% elif 'created' in sm %}{{ sm.created }} added{% if sm.get('duplicates') %}, {{ sm.duplicates }} already there{% endif %}{% if sm.get('skipped') %}, {{ sm.skipped }} skipped{% endif %}
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <p class="muted">No imports yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Backups</h2>
+      <p class="small">Made once a day at startup and before every import. The newest {{ keep_daily }} daily and {{ keep_other }} other backups are kept. Library files aren't copied: they are never changed, so the files folder plus a backup is complete.</p>
+      <form method="post">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="backup">
+        <button class="btn btn-primary">Back up now</button>
+      </form>
+      {% if backups %}
+      <ul class="backup-list">
+        {% for b in backups %}
+        <li>
+          <a href="{{ url_for('settings.download_backup', name=b.name) }}" download>{{ b.created|dt }} UTC</a>
+          <span class="badge">{{ b.reason|replace('-', ' ') }}</span>
+          <span class="muted small">{{ b.size|filesize }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">No backups yet.</p>
+      {% endif %}
+      <p class="small muted">Folder: <code class="path">{{ backups_dir }}</code></p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

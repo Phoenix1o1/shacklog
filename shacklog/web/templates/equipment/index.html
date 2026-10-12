@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Equipment{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Equipment", "Radios, antennas, receivers and everything else in the shack.") %}
+  <a class="btn btn-primary" href="{{ url_for('equipment.new') }}">Add equipment</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult, [], '') }}
+{{ count_line(page, 'items') }}
+
+{% if page.items %}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    {{ sort_th('name', 'Name', sort_key, sort_dir) }}
+    {{ sort_th('kind', 'Kind', sort_key, sort_dir) }}
+    <th>Make · model</th>
+    <th>Frequencies</th>
+    <th>Firmware</th>
+    {{ sort_th('status', 'Status', sort_key, sort_dir) }}
+    {{ sort_th('acquired', 'Acquired', sort_key, sort_dir, 'num') }}
+  </tr></thead>
+  <tbody>
+  {% for e in page.items %}
+  <tr{% if e.status == 'retired' %} class="retired-row"{% endif %}>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary" data-label="Name"><a class="rowlink" href="{{ url_for('equipment.view', record_id=e.id) }}"><b>{{ e.name }}</b></a></td>
+    <td data-label="Kind">{{ e.kind|label(M.EQUIPMENT_KINDS) }}</td>
+    <td data-label="Model">{{ [e.manufacturer, e.model]|select|join(' ') }}</td>
+    <td class="wrap" data-label="Frequencies">{{ e.freq_range or '' }}</td>
+    <td data-label="Firmware">{{ e.firmware or '' }}</td>
+    <td data-label="Status"><span class="badge{% if e.status == 'active' %} badge-ok{% elif e.status == 'broken' %} badge-bad{% elif e.status in ('wishlist', 'ordered') %} badge-warn{% endif %}">{{ e.status|label(M.EQUIPMENT_STATUS) }}</span></td>
+    <td class="num" data-label="Acquired">{{ e.acquired_on|day }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% elif fresult.active %}
+  {{ empty("No equipment matches these filters.", url_for('equipment.index'), "Clear filters") }}
+{% else %}
+  {{ empty("Nothing in the inventory yet. Start with the radio you use most.", url_for('equipment.new'), "Add equipment") }}
+{% endif %}
+{% endblock %}

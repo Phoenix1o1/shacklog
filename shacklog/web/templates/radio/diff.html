@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}Changes: {{ a.title }} → {{ b.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% macro ch_cells(ch) %}
+  <td class="num" data-label="MHz">{{ ch.get('freq_mhz')|freq }}</td>
+  <td class="num" data-label="Shift">{% set sh = shift_of(ch) %}{% if sh is none %}{{ ch.get('duplex') or '' }}{% elif sh %}{{ '%+.3f'|format(sh) }}{% endif %}</td>
+  <td data-label="Tone">{{ tone_text(ch) }}</td>
+  <td data-label="Mode">{{ ch.get('mode') or '' }}</td>
+{% endmacro %}
+{% block content %}
+{% call page_head("What changed", a.title ~ ' → ' ~ b.title) %}
+  <a class="btn" href="{{ url_for('radio.view', record_id=b.id) }}">Open {{ b.title }}</a>
+  <a class="btn btn-quiet" href="{{ url_for('radio.diff', a=b.id, b=a.id) }}">Swap</a>
+{% endcall %}
+
+<form method="get" action="{{ url_for('radio.diff') }}" class="filterbar">
+  <div class="filter-row">
+    <div class="filter"><label for="d-a">Before</label>
+      <select id="d-a" name="a">{% for c in configs %}<option value="{{ c.id }}" {% if c.id == a.id %}selected{% endif %}>{{ c.title }}{% if c.config_date %} ({{ c.config_date|day }}){% endif %}</option>{% endfor %}</select></div>
+    <div class="filter"><label for="d-b">After</label>
+      <select id="d-b" name="b">{% for c in configs %}<option value="{{ c.id }}" {% if c.id == b.id %}selected{% endif %}>{{ c.title }}{% if c.config_date %} ({{ c.config_date|day }}){% endif %}</option>{% endfor %}</select></div>
+  </div>
+  <div class="filter-actions"><button class="btn btn-primary">Compare</button></div>
+</form>
+
+<ul class="tally diff-tally">
+  <li><b>{{ result.added|length }}</b><span>added</span></li>
+  <li><b>{{ result.removed|length }}</b><span>removed</span></li>
+  <li><b>{{ result.changed|length }}</b><span>changed</span></li>
+</ul>
+
+{% if not (result.added or result.removed or result.changed) %}
+<div class="empty"><p>The two channel lists are the same.</p></div>
+{% endif %}
+
+{% if result.changed %}
+<section class="panel">
+  <h2>Changed</h2>
+  <div class="ledger-wrap">
+  <table class="ledger diff-table">
+    <thead><tr><th class="num" aria-label="Line">#</th><th class="num">Mem</th><th>Name</th><th class="num">MHz</th><th class="num">Shift</th><th>Tone</th><th>Mode</th><th>What changed</th></tr></thead>
+    <tbody>
+    {% for old, new, fields in result.changed %}
+    <tr class="diff-old">
+      <td class="num">{{ loop.index }}</td>
+      <td class="num" data-label="Memory">{{ old.get('location') }}</td>
+      <td class="primary" data-label="Before"><s>{{ old.get('name') or '' }}</s></td>
+      {{ ch_cells(old) }}
+      <td data-label="Changed">{{ fields|join(', ') }}</td>
+    </tr>
+    <tr class="diff-new">
+      <td class="num"></td>
+      <td class="num" data-label="Memory">{{ new.get('location') }}</td>
+      <td class="primary" data-label="After"><b>{{ new.get('name') or '' }}</b></td>
+      {{ ch_cells(new) }}
+      <td data-label="Fields"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{% for title, items, cls in [('Added', result.added, 'diff-new'), ('Removed', result.removed, 'diff-old')] if items %}
+<section class="panel">
+  <h2>{{ title }}</h2>
+  <div class="ledger-wrap">
+  <table class="ledger diff-table">
+    <thead><tr><th class="num" aria-label="Line">#</th><th class="num">Mem</th><th>Name</th><th class="num">MHz</th><th class="num">Shift</th><th>Tone</th><th>Mode</th></tr></thead>
+    <tbody>
+    {% for ch in items %}
+    <tr class="{{ cls }}">
+      <td class="num">{{ loop.index }}</td>
+      <td class="num" data-label="Memory">{{ ch.get('location') }}</td>
+      <td class="primary" data-label="Name"><b>{{ ch.get('name') or '' }}</b></td>
+      {{ ch_cells(ch) }}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

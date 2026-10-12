@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ config.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(config.title, [config.radio.name if config.radio else None, config.edition, config.firmware, config.config_date|day]|select|join(' · ')) %}
+  <a class="btn btn-primary" href="{{ url_for('radio.edit', record_id=config.id) }}">Edit</a>
+  <a class="btn" href="{{ url_for('radio.new', **{'from': config.id}) }}">Save a new version</a>
+  {% if rows %}<a class="btn" href="{{ url_for('radio.export_chirp', record_id=config.id) }}">Export channels as CHIRP CSV</a>{% endif %}
+  {{ delete_button(url_for('radio.delete', record_id=config.id), 'this configuration') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Configuration {% if config.is_current %}<span class="badge badge-ok">on the radio now</span>{% endif %}</h2>
+      {{ facts([
+        ('Radio', config.radio.name if config.radio else None),
+        ('Edition / bank', config.edition), ('Firmware', config.firmware),
+        ('Date', config.config_date|day),
+        ('Channels', rows|length if rows else None),
+        ('Matched to repeaters', matched if rows else None),
+      ]) }}
+      {% if config.radio %}<p class="small"><a href="{{ url_for('equipment.view', record_id=config.radio.id) }}">Open {{ config.radio.name }}</a></p>{% endif %}
+      {% if image or csv_file %}
+      <p class="file-buttons">
+        {% if image %}<a class="btn" href="{{ url_for('files.download', record_id=image.id) }}">Download image <span class="muted">{{ image.filename }} · {{ image.size|filesize }}</span></a>{% endif %}
+        {% if csv_file %}<a class="btn" href="{{ url_for('files.download', record_id=csv_file.id) }}">Download original CSV <span class="muted">{{ csv_file.filename }}</span></a>{% endif %}
+      </p>
+      {% endif %}
+    </section>
+
+    {% if config.settings or config.notes or config.tags %}
+    <section class="panel">
+      <h2>Settings applied</h2>
+      {% if config.settings %}<div class="prose">{{ config.settings|textblock }}</div>{% endif %}
+      {% if config.notes %}<h3>Notes</h3><div class="prose">{{ config.notes|textblock }}</div>{% endif %}
+      {{ tag_list(config.tags) }}
+    </section>
+    {% endif %}
+
+    <section class="panel" id="channels">
+      <h2>Channels</h2>
+      {% if rows %}
+      <div class="ledger-wrap">
+      <table class="ledger channel-table">
+        <thead><tr>
+          <th class="num" aria-label="Line">#</th><th class="num">Mem</th><th>Name</th><th class="num">MHz</th><th class="num">Shift</th>
+          <th>Tone</th><th>Mode</th><th>Power</th><th>Skip</th><th>Repeater</th>
+        </tr></thead>
+        <tbody>
+        {% for ch, shift, tone in rows %}
+        <tr id="ch-{{ ch.location }}">
+          <td class="num">{{ loop.index }}</td>
+          <td class="num" data-label="Memory">{{ ch.location }}</td>
+          <td class="primary" data-label="Name"><b>{{ ch.name or '' }}</b>{% if ch.comment %} <span class="muted small">{{ ch.comment }}</span>{% endif %}</td>
+          <td class="num" data-label="MHz">{{ ch.freq_mhz|freq }}</td>
+          <td class="num" data-label="Shift">{% if shift is none %}{{ ch.duplex or '' }}{% elif shift %}{{ '%+.3f'|format(shift) }}{% endif %}</td>
+          <td data-label="Tone">{{ tone }}</td>
+          <td data-label="Mode">{{ ch.mode or '' }}</td>
+          <td data-label="Power">{{ ch.power or '' }}</td>
+          <td data-label="Skip">{{ ch.skip or '' }}</td>
+          <td data-label="Repeater">{% if ch.repeater and not ch.repeater.is_deleted %}<a href="{{ url_for('repeaters.view', record_id=ch.repeater.id) }}">{{ ch.repeater.callsign or ch.repeater.name }}</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <form method="post" action="{{ url_for('radio.rematch', record_id=config.id) }}" class="stack-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-small">Match channels to repeaters again</button>
+        <span class="small muted">Useful after importing or editing repeaters.</span>
+      </form>
+      {% else %}
+      <p class="muted">No channel list. Edit the configuration and add the CHIRP CSV to see and search its channels.</p>
+      {% endif %}
+    </section>
+
+    {{ links_panel('radio_config', config, linked, 'Files & links') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Compare</h2>
+      {% if others %}
+      <form method="get" action="{{ url_for('radio.diff') }}" class="compare-form">
+        <input type="hidden" name="b" value="{{ config.id }}">
+        <label for="cmp-a">Compare with…</label>
+        <select id="cmp-a" name="a">
+          {% for o in others %}<option value="{{ o.id }}">{{ o.title }}{% if o.config_date %} ({{ o.config_date|day }}){% endif %}</option>{% endfor %}
+        </select>
+        <button class="btn">Show changes</button>
+      </form>
+      {% else %}
+      <p class="muted">Save another configuration to compare channel lists.</p>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <h2>Find a channel</h2>
+      <form method="get" action="{{ url_for('radio.channels') }}" class="compare-form">
+        <label for="ch-q">Name or frequency in any configuration</label>
+        <input id="ch-q" name="q" placeholder="145.650 or IR2UFD">
+        <button class="btn">Find</button>
+      </form>
+    </section>
+    {{ record_meta(config) }}
+  </aside>
+</div>
+{% endblock %}

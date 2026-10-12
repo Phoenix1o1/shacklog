@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar %}
+{% block title %}Find a channel{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head("Find a channel", "Where is a frequency or a name programmed? Searches the channels of every saved configuration.") %}
+  <a class="btn" href="{{ url_for('radio.index') }}">All configurations</a>
+{% endcall %}
+
+{{ filter_bar(filters, fchoices, fresult) }}
+
+{% if page is none %}
+  <div class="empty"><p>Type a frequency (145.650, 145,65 or 145650) or part of a channel name.</p></div>
+{% elif page.items %}
+{{ count_line(page, 'channels') }}
+<div class="ledger-wrap">
+<table class="ledger">
+  <thead><tr>
+    <th class="num" aria-label="Line">#</th>
+    <th>Configuration</th>
+    <th class="num">Mem</th>
+    <th>Name</th>
+    <th class="num">MHz</th>
+    <th class="num">Shift</th>
+    <th>Tone</th>
+    <th>Repeater</th>
+  </tr></thead>
+  <tbody>
+  {% for ch, cfg in page.items %}
+  {% set sh = shift_of(ch) %}
+  <tr>
+    <td class="num">{{ page.first_index + loop.index0 }}</td>
+    <td class="primary" data-label="Configuration"><a class="rowlink" href="{{ url_for('radio.view', record_id=cfg.id) }}#ch-{{ ch.location }}"><b>{{ cfg.title }}</b></a>{% if cfg.is_current %} <span class="badge badge-ok">current</span>{% endif %}
+      <span class="muted small">{{ cfg.radio.name if cfg.radio else '' }}</span></td>
+    <td class="num" data-label="Memory">{{ ch.location }}</td>
+    <td data-label="Name"><b>{{ ch.name or '' }}</b></td>
+    <td class="num" data-label="MHz">{{ ch.freq_mhz|freq }}</td>
+    <td class="num" data-label="Shift">{% if sh is none %}{{ ch.duplex or '' }}{% elif sh %}{{ '%+.3f'|format(sh) }}{% endif %}</td>
+    <td data-label="Tone">{{ tone_text(ch) }}</td>
+    <td data-label="Repeater">{% if ch.repeater and not ch.repeater.is_deleted %}<a href="{{ url_for('repeaters.view', record_id=ch.repeater.id) }}">{{ ch.repeater.callsign or ch.repeater.name }}</a>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pagination(page) }}
+{% else %}
+  {{ empty("That isn't programmed in any saved configuration.", url_for('radio.channels'), "New search") }}
+{% endif %}
+{% endblock %}

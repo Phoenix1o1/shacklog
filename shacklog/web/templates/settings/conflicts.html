@@ -1,0 +1,74 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, pagination, count_line, empty %}
+{% from "_forms.html" import csrf %}
+{% set settings_tab = 'conflicts' %}
+{% block title %}Conflicts{% endblock %}
+{% block settings_body %}
+{% call page_head("Conflicts", "When a record was changed in two places, the newer change wins. The other version is kept here.") %}{% endcall %}
+
+{% if unresolved %}
+<p class="muted">{{ unresolved }} to review. <b>Restore</b> puts the kept version back (it then syncs everywhere); <b>Dismiss</b> accepts the current one and keeps the old version on file.</p>
+{% endif %}
+{{ count_line(page, 'kept versions') }}
+
+{% if views %}
+{% for v in views %}
+{% set c = v.conflict %}
+<section class="panel conflict {% if c.resolved_at %}conflict-resolved{% endif %}" id="conflict-{{ c.id }}">
+  <header class="conflict-head">
+    <div>
+      <h2>
+        {{ label_of(c.table_name) }}
+        {% if v.current %}
+          {% set url = entity_url(v.model.__entity__, v.current.id) if v.model else None %}
+          {% if url and not v.current.deleted_at %}<a href="{{ url }}">{{ v.current.display_name() }}</a>{% else %}{{ v.current.display_name() }}{% endif %}
+        {% else %}<span class="muted">(record not on this instance)</span>{% endif %}
+      </h2>
+      <p class="small muted">
+        {% if c.kind == 'local_overwritten' %}A change made here was replaced by a newer one from {{ c.peer_name or 'another instance' }}.
+        {% else %}An older change from {{ c.peer_name or 'another instance' }} arrived after a newer one.{% endif %}
+        Detected {{ c.detected_at|dt }} UTC.
+        {% if c.resolved_at %}<span class="badge">{{ c.resolution }} {{ c.resolved_at|dt }}</span>{% endif %}
+      </p>
+    </div>
+    {% if not c.resolved_at %}
+    <div class="page-actions">
+      <form method="post" action="{{ url_for('settings.conflict_action', conflict_id=c.id, action='restore') }}" class="inline-form">
+        {{ csrf() }}<button class="btn btn-primary">Restore kept version</button>
+      </form>
+      <form method="post" action="{{ url_for('settings.conflict_action', conflict_id=c.id, action='dismiss') }}" class="inline-form">
+        {{ csrf() }}<button class="btn">Dismiss</button>
+      </form>
+    </div>
+    {% elif c.resolution != 'restored' %}
+    <form method="post" action="{{ url_for('settings.conflict_action', conflict_id=c.id, action='restore') }}" class="inline-form">
+      {{ csrf() }}<button class="btn btn-small">Restore this version anyway</button>
+    </form>
+    {% endif %}
+  </header>
+  {% if v.rows %}
+  <div class="ledger-wrap">
+  <table class="ledger diff">
+    <thead><tr><th class="num">#</th><th>Field</th><th>Kept version</th><th>Current record</th></tr></thead>
+    <tbody>
+    {% for field, old, new in v.rows %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td class="primary" data-label="Field">{{ field|replace('_', ' ') }}</td>
+      <td class="wrap diff-old" data-label="Kept">{% if old is none or old == '' %}<span class="muted">empty</span>{% else %}{{ old }}{% endif %}</td>
+      <td class="wrap diff-new" data-label="Current">{% if new is none or new == '' %}<span class="muted">empty</span>{% else %}{{ new }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted small">The kept version is identical to the current record now.</p>
+  {% endif %}
+</section>
+{% endfor %}
+{{ pagination(page) }}
+{% else %}
+  {{ empty("No conflicts. When the same record is edited on two instances before they sync, the older edit is kept here so nothing is lost.") }}
+{% endif %}
+{% endblock %}

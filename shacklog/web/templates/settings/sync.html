@@ -1,0 +1,115 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, facts %}
+{% from "_forms.html" import csrf %}
+{% set settings_tab = 'sync' %}
+{% block title %}Sync{% endblock %}
+{% block settings_body %}
+{% call page_head("Sync", "Keep your instances in step through one hub, usually the Proxmox server.") %}{% endcall %}
+
+{% if unresolved %}
+<p class="flash flash-warn">{{ unresolved }} {{ 'version was' if unresolved == 1 else 'versions were' }} kept from conflicting edits. <a href="{{ url_for('settings.conflicts') }}">Review conflicts</a></p>
+{% endif %}
+
+{% if new_token %}
+<section class="panel token-panel" id="token">
+  <h2>Sync token</h2>
+  <p>Copy this token now and paste it into <b>Settings › Sync › Token</b> on each computer that syncs with this one. It won't be shown again; generate a new one if you lose it.</p>
+  <input class="token" readonly value="{{ new_token }}" aria-label="Sync token" onclick="this.select()">
+  <p class="small muted">Tap the box to select it, then copy.</p>
+</section>
+{% endif %}
+
+<div class="settings-grid">
+  <div>
+    <section class="panel">
+      <h2>This computer syncs with a hub</h2>
+      {% set st = status %}
+      {% if hub_peer %}
+      <p class="sync-state">
+        {% if hub_peer.last_status == 'ok' %}<span class="badge badge-ok">Last sync OK</span>
+        {% elif hub_peer.last_status == 'error' %}<span class="badge badge-bad">Last sync failed</span>
+        {% else %}<span class="badge">Not synced yet</span>{% endif %}
+        {% if hub_peer.last_sync_at %}{{ hub_peer.last_sync_at|dt }} UTC with {{ hub_peer.name or hub_peer.url }}{% endif %}
+        {% if st.get('state') == 'running' %}<span class="badge badge-warn">Syncing now</span>{% endif %}
+      </p>
+      {% if hub_peer.last_error %}<p class="flash flash-error">{{ hub_peer.last_error }}</p>{% endif %}
+      {% elif st.get('last_error') %}
+      <p class="flash flash-error">{{ st.get('last_error') }}</p>
+      {% endif %}
+
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="client">
+        <div class="field w-full"><label for="sync_hub_url">Hub address</label>
+          <input id="sync_hub_url" name="sync_hub_url" type="url" inputmode="url" value="{{ hub_url }}" placeholder="http://192.168.1.20:8573" autocomplete="off" spellcheck="false">
+          <p class="field-help">The address you open the hub with in a browser. Leave empty to stop syncing.</p></div>
+        <div class="field w-full"><label for="sync_client_token">Token</label>
+          <input id="sync_client_token" name="sync_client_token" type="password" autocomplete="off" placeholder="{{ 'Saved. Paste a new token to replace it.' if has_client_token else 'Paste the token shown on the hub' }}">
+          {% if has_client_token %}<label class="small"><input type="checkbox" name="forget_token" value="1"> Forget the saved token</label>{% endif %}</div>
+        <div class="field w-half"><label for="sync_interval_min">Sync automatically</label>
+          <select id="sync_interval_min" name="sync_interval_min">
+            {% for value, label in intervals %}<option value="{{ value }}" {% if value == interval %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if not worker %}<p class="field-help">Automatic sync runs while {{ app_name }} is open; on a server use <code>shacklog sync</code> from a timer.</p>{% endif %}</div>
+        <div class="field w-half field-bool"><label><input type="checkbox" name="sync_pull_files" value="1" {% if pull_files %}checked{% endif %}> Download library files too</label>
+          <p class="field-help">Off: files are fetched when you open them. Saves disk space on small laptops.</p></div>
+        <div class="form-actions"><button class="btn btn-primary">Save sync settings</button></div>
+      </form>
+      <div class="settings-row">
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="test"><button class="btn" {% if not (hub_url and has_client_token) %}disabled{% endif %}>Test connection</button></form>
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="sync_now"><button class="btn btn-primary" {% if not (hub_url and has_client_token) %}disabled{% endif %}>Sync now</button></form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>This computer is the hub</h2>
+      <p>Turn this on for the instance that collects everything (the Proxmox server). Other instances then sync with it using the token.</p>
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="hub">
+        <div class="field w-full field-bool"><label><input type="checkbox" name="sync_hub_enabled" value="1" {% if hub_enabled %}checked{% endif %}> Accept sync from other instances</label></div>
+        <div class="form-actions"><button class="btn btn-primary">Save hub setting</button></div>
+      </form>
+      {% if hub_enabled %}
+      <p class="small">Other computers use the hub address <code>{{ this_url }}</code> (or the address they reach this machine at) and the token.</p>
+      <form method="post" onsubmit="return confirm('Generate a new token? Every computer using the current one must be given the new token.');">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="rotate_token">
+        <button class="btn">{{ 'Generate a new token' if has_hub_token else 'Generate token' }}</button>
+      </form>
+      {% endif %}
+
+      <h3 class="settings-sub">Instances that synced with this one</h3>
+      {% if clients %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr><th class="num">#</th><th>Instance</th><th>Last seen UTC</th><th class="num">Changes received</th></tr></thead>
+        <tbody>
+        {% for p in clients %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="primary" data-label="Instance">{{ p.name or 'Unnamed' }} <span class="muted small">{{ p.instance_id[:8] }}</span></td>
+          <td class="num" data-label="Last seen">{{ p.last_sync_at|dt }}</td>
+          <td class="num" data-label="Up to change">{{ p.last_pull_seq }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <p class="muted">None yet. They appear here after their first sync.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside>
+    <section class="panel prose">
+      <h2>How sync works</h2>
+      <p>Each instance keeps its own database. A sync sends this computer's changes to the hub, then fetches everything the hub has that this computer lacks, library files included.</p>
+      <p>When the same record was edited in two places, the newer edit wins and the other one is kept under <a href="{{ url_for('settings.conflicts') }}">Conflicts</a>, where you can restore it. Deleted records travel as deletions and can be restored from the <a href="{{ url_for('settings.trash') }}">trash</a>.</p>
+      <p>Settings, passwords and tokens never leave the computer they belong to.</p>
+      <p>No network between two machines? Use a <a href="{{ url_for('settings.data') }}">bundle</a> instead.</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

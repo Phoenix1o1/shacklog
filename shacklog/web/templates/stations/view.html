@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, page_head %}
+{% block title %}{{ station.name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(station.name, (station.kind|label(M.STATION_KINDS)) ~ ((' · ' ~ station.callsign) if station.callsign else '') ~ ((' · ' ~ station.locator) if station.locator else '')) %}
+  <a class="btn btn-primary" href="{{ url_for('stations.edit', record_id=station.id) }}">Edit</a>
+  <a class="btn" href="{{ url_for('repeaters.index', near=station.name, radius=60, sort='distance') }}">Repeaters within 60 km</a>
+  {{ delete_button(url_for('stations.delete', record_id=station.id), 'this station') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Location & setup</h2>
+      {{ facts([
+        ('Place', station.location_name),
+        ('Locator', station.locator),
+        ('Coordinates', ('%.5f, %.5f'|format(station.latitude, station.longitude)) if station.has_position else None),
+        ('Altitude', (station.altitude_m|round|int|string ~ ' m') if station.altitude_m is not none else None),
+        ('Region', station.region), ('Country', station.country),
+        ('Callsign', station.callsign), ('Operator', station.operator),
+        ('Default radio', station.radio.name if station.radio else None),
+        ('Default antenna', station.antenna.name if station.antenna else None),
+        ('Default power', (station.power_w|string ~ ' W') if station.power_w is not none else None),
+      ]) }}
+      {% if station.radio or station.antenna %}
+      <p class="small">
+        {% if station.radio %}<a href="{{ url_for('equipment.view', record_id=station.radio.id) }}">Open {{ station.radio.name }}</a>{% endif %}
+        {% if station.antenna %}<a href="{{ url_for('equipment.view', record_id=station.antenna.id) }}">Open {{ station.antenna.name }}</a>{% endif %}
+      </p>
+      {% endif %}
+      {% if station.notes %}<div class="prose">{{ station.notes|textblock }}</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Nearest repeaters</h2>
+      {% if not pos %}
+      <p class="muted">Add a locator or coordinates to see which repeaters are in reach.</p>
+      {% elif nearest %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr><th class="num" aria-label="Line">#</th><th>Repeater</th><th class="num">Output MHz</th><th class="num">Shift</th><th class="num">Tone</th><th class="num">km</th><th>Bearing</th></tr></thead>
+        <tbody>
+        {% for rep, km, brg in nearest %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="primary" data-label="Repeater"><a class="rowlink" href="{{ url_for('repeaters.view', record_id=rep.id) }}"><b>{{ rep.callsign or rep.name }}</b></a> <span class="muted">{{ rep.ident or '' }} {{ rep.name if rep.callsign else '' }}</span></td>
+          <td class="num" data-label="Output">{{ rep.output_mhz|freq }}</td>
+          <td class="num" data-label="Shift">{% if rep.offset_mhz is not none %}{{ '%+.3f'|format(rep.offset_mhz) }}{% endif %}</td>
+          <td class="num" data-label="Tone">{{ rep.ctcss_up or '' }}</td>
+          <td class="num" data-label="Distance">{{ km|km }}</td>
+          <td data-label="Bearing">{{ brg|bearing }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <p class="small"><a href="{{ url_for('repeaters.index', near=station.name, sort='distance') }}">All repeaters by distance from {{ station.name }}</a>
+        · <a href="{{ url_for('repeaters.export_chirp', near=station.name, radius=60, order='distance') }}">CHIRP CSV of those within 60 km</a></p>
+      {% else %}
+      <p class="muted">No repeater with a known position yet. <a href="{{ url_for('repeaters.import_chirp') }}">Import a CHIRP CSV</a> or <a href="{{ url_for('repeaters.new') }}">add one</a>.</p>
+      {% endif %}
+    </section>
+
+    {{ links_panel('station', station, linked, 'Photos, documents & links') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Use this station</h2>
+      {% if is_default %}
+      <p><span class="badge badge-ok">Default</span> New QSOs and listening entries start here.</p>
+      {% else %}
+      <form method="post" action="{{ url_for('stations.make_default', record_id=station.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn">Use as default for new entries</button>
+      </form>
+      {% endif %}
+      {% if is_reference %}
+      <p><span class="badge">Reference</span> Distances are measured from here unless a list says otherwise.</p>
+      {% else %}
+      <form method="post" action="{{ url_for('stations.make_reference', record_id=station.id) }}" class="stack-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn">Use as distance reference</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Activity from here</h2>
+      <ul class="tally">
+        <li><b>{{ qso_count }}</b><span><a href="{{ url_for('qsos.index', station=station.id) }}">QSOs</a></span></li>
+        <li><b>{{ swl_count }}</b><span><a href="{{ url_for('swl.index', station=station.id) }}">heard</a></span></li>
+      </ul>
+      {% if latest_qsos %}
+      <ul class="linked-list">
+        {% for q in latest_qsos %}
+        <li><a class="call" href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.call }}</a> <span class="muted">{{ q.time_on|dt }} · {{ q.band or '' }} {{ display_mode(q.mode, q.submode) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+    {{ record_meta(station) }}
+  </aside>
+</div>
+{% endblock %}

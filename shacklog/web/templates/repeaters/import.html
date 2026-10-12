@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_forms.html" import csrf %}
+{% block title %}Import repeaters from CHIRP{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import repeaters from a CHIRP CSV</h1></div>
+<div class="panel prose">
+  <p>Turns the channels of a CHIRP CSV into repeaters: output and input frequency, shift,
+     tone and name. Use it with an export from your radio (<i>File › Export</i> in CHIRP)
+     or with a repeater list someone shared in CHIRP format.</p>
+  <p>A channel is skipped when a repeater with the same output frequency and the same name
+     or callsign is already here. A backup of the database is made first.</p>
+</div>
+<form method="post" enctype="multipart/form-data" class="record-form">
+  {{ csrf() }}
+  <fieldset class="form-section">
+    <div class="grid">
+      <div class="field w-full"><label for="file">CHIRP CSV file</label>
+        <input id="file" type="file" name="file" accept=".csv,text/csv" required></div>
+      <div class="field w-half"><label for="country">Country for new repeaters</label>
+        <input id="country" name="country" value="{{ reference.country if reference and reference.country else '' }}" placeholder="Italy, France…"></div>
+      <div class="field w-half"><label for="region">Region</label>
+        <input id="region" name="region" value="{{ reference.region if reference and reference.region else '' }}" placeholder="Lombardia, Isère…"></div>
+      <div class="field w-full"><label for="source">Source</label>
+        <input id="source" name="source" placeholder="Empty: the file name">
+        <p class="field-help">Where the list came from, so you know how much to trust it later.</p></div>
+      <div class="field w-full field-bool"><label><input type="checkbox" name="include_simplex" value="1"> Also import simplex and receive-only channels</label>
+        <p class="field-help">Off: channels without a shift (calling frequencies, PMR, airband…) are skipped.</p></div>
+    </div>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn-primary">Import CHIRP CSV</button>
+    <a class="btn btn-quiet" href="{{ url_for('repeaters.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

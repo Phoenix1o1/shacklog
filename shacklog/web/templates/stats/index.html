@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}Statistics{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+
+{% macro bar_list(items, cls='') %}
+{% if items %}
+<ul class="bars {{ cls }}">
+  {% for b in items %}
+  <li><span class="lbl" title="{{ b.label }}">{% if b.url %}<a href="{{ b.url }}">{{ b.label }}</a>{% else %}{{ b.label }}{% endif %}</span>
+    <span class="bar" style="width: {{ b.pct }}%" aria-hidden="true"></span>
+    <span class="val">{{ b.value }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted small">Nothing yet.</p>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+{% call page_head("Statistics", ('Year ' ~ year if year else 'All years') ~ (' · ' ~ station.name if station else ' · all stations')) %}{% endcall %}
+
+<form class="stats-filter filterbar" method="get" action="{{ url_for('stats.index') }}">
+  <div class="filter">
+    <label for="st-year">Year</label>
+    <select id="st-year" name="year">
+      <option value="">All years</option>
+      {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filter">
+    <label for="st-station">My station</label>
+    <select id="st-station" name="station">
+      <option value="">All stations</option>
+      {% for v, l in stations %}<option value="{{ v }}" {% if station and station.id == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Show</button>
+    {% if year or station %}<a class="btn btn-quiet" href="{{ url_for('stats.index') }}">Clear</a>{% endif %}
+  </div>
+</form>
+
+<section class="panel">
+  <ul class="tally">
+    <li><b>{{ total_qsos }}</b><span>QSOs</span></li>
+    <li><b>{{ unique_calls }}</b><span>different callsigns worked</span></li>
+    <li><b>{{ total_swl }}</b><span>listening entries</span></li>
+    <li><b>{{ swl_unique }}</b><span>different things heard</span></li>
+  </ul>
+</section>
+
+{% if not total_qsos and not total_swl %}
+<div class="empty">
+  <p>{% if year or station %}Nothing logged for this selection.{% else %}Statistics appear once there are QSOs or listening entries.{% endif %}</p>
+  <a class="btn btn-primary" href="{{ url_for('qsos.new') }}">Log QSO</a>
+  <a class="btn" href="{{ url_for('swl.new') }}">Log something heard</a>
+</div>
+{% else %}
+<div class="stats-grid">
+  {% if total_qsos %}
+  <section class="panel">
+    <h2>QSOs by band</h2>
+    {{ bar_list(by_band) }}
+  </section>
+  <section class="panel">
+    <h2>QSOs by mode</h2>
+    {{ bar_list(by_mode) }}
+  </section>
+
+  <section class="panel wide">
+    <h2>QSOs per month, last {{ months }} months</h2>
+    {{ bar_list(by_month, 'months') }}
+  </section>
+
+  {% if not year %}
+  <section class="panel">
+    <h2>QSOs by year</h2>
+    {{ bar_list(by_year) }}
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Longest distance per band</h2>
+    {% if odx %}
+    <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th class="num" aria-label="Line">#</th><th>Band</th><th>Call</th><th class="num">km</th><th>Date UTC</th></tr></thead>
+      <tbody>
+      {% for r in odx %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td data-label="Band">{{ r.band or 'unknown' }}</td>
+        <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('qsos.view', record_id=r.id) }}">{{ r.call }}</a> <span class="muted small">{{ r.locator or '' }}</span></td>
+        <td class="num" data-label="Distance">{{ r.distance_km|km }}</td>
+        <td class="num" data-label="Date">{{ r.time_on|day }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted small">No distances yet: they need the other station's locator and my station's position.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Most worked callsigns</h2>
+    <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th class="num" aria-label="Line">#</th><th>Call</th><th class="num">QSOs</th></tr></thead>
+      <tbody>
+      {% for call, n in top_calls %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('contacts.callsign', call=call) }}">{{ call }}</a></td>
+        <td class="num" data-label="QSOs"><a href="{{ url_for('qsos.index', call=call) }}">{{ n }}</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Most used repeaters</h2>
+    {% if repeaters %}
+    <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th class="num" aria-label="Line">#</th><th>Repeater</th><th class="num">QSOs</th></tr></thead>
+      <tbody>
+      {% for r, n in repeaters %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td class="primary wrap" data-label="Repeater"><a class="rowlink" href="{{ url_for('repeaters.view', record_id=r.id) }}">{{ r.name }}</a> <span class="muted small">{{ r.output_mhz|freq }}</span></td>
+        <td class="num" data-label="QSOs"><a href="{{ url_for('qsos.index', repeater=r.id) }}">{{ n }}</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted small">No QSOs through a repeater yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>QSOs per station</h2>
+    {{ bar_list(per_station) }}
+  </section>
+  <section class="panel">
+    <h2>QSOs per radio</h2>
+    {{ bar_list(per_radio) }}
+  </section>
+  <section class="panel">
+    <h2>QSOs per antenna</h2>
+    {{ bar_list(per_antenna) }}
+  </section>
+  {% endif %}
+
+  {% if total_swl %}
+  <section class="panel">
+    <h2>Listening entries by category</h2>
+    {{ bar_list(swl_by_category) }}
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

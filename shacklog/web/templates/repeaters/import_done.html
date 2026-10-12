@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Import finished{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import finished</h1></div>
+<section class="panel">
+  <p>{{ filename }}</p>
+  <ul class="tally">
+    <li><b>{{ created|length }}</b><span>repeaters added</span></li>
+    <li><b>{{ duplicates|length }}</b><span>already here</span></li>
+    <li><b>{{ simplex|length }}</b><span>simplex or receive-only skipped</span></li>
+    <li><b>{{ errors|length }}</b><span>unreadable</span></li>
+  </ul>
+</section>
+
+{% if created %}
+<section class="panel">
+  <h2>Added</h2>
+  <div class="ledger-wrap">
+  <table class="ledger">
+    <thead><tr><th class="num" aria-label="Line">#</th><th>Name</th><th class="num">Output MHz</th><th class="num">Shift</th><th class="num">Tone</th><th>Locator</th></tr></thead>
+    <tbody>
+    {% for r in created %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td class="primary" data-label="Name"><a class="rowlink" href="{{ url_for('repeaters.view', record_id=r.id) }}"><b>{{ r.name }}</b></a></td>
+      <td class="num" data-label="Output">{{ r.output_mhz|freq }}</td>
+      <td class="num" data-label="Shift">{% if r.offset_mhz is not none %}{{ '%+.3f'|format(r.offset_mhz) }}{% endif %}</td>
+      <td class="num" data-label="Tone">{{ r.ctcss_up or '' }}</td>
+      <td data-label="Locator">{{ r.locator or '' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if created|rejectattr('locator')|list %}
+  <p class="small muted">Repeaters without a locator don't appear in distance filters. Open one and add its site to fix that.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if duplicates or simplex or errors %}
+<section class="panel">
+  {% if duplicates %}<h2>Already here</h2><p class="small">{{ duplicates|join(' · ') }}</p>{% endif %}
+  {% if simplex %}<h2>Skipped (no shift)</h2><p class="small">{{ simplex|join(' · ') }}</p>
+    {% if not include_simplex %}<p class="small muted">Import again with “Also import simplex and receive-only channels” to keep them.</p>{% endif %}{% endif %}
+  {% if errors %}<h2>Problems</h2><ul>{% for e in errors[:50] %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+<p><a class="btn btn-primary" href="{{ url_for('repeaters.index') }}">Open the repeater list</a>
+   <a class="btn" href="{{ url_for('repeaters.import_chirp') }}">Import another file</a></p>
+{% endblock %}

@@ -1,0 +1,48 @@
+/* ---------- reference sections: repeaters, radio configs, stations, equipment, contacts ----------
+   Uses only the tokens of app.css (--accent, --rule, --bar, --margin…). Loaded by the
+   templates of these sections through their `head` block. */
+
+/* Rows of retired equipment and off-air repeaters stay readable but recede. */
+.retired-row td { color: var(--ink-2); }
+.retired-row a.rowlink { color: var(--ink-2); }
+
+/* Small forms stacked under other content (station buttons, re-match). */
+.stack-form { margin-top: .6rem; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+
+/* Repeater list: the "send this list to a radio" panel. */
+.chirp-export { padding: .6rem 1rem; }
+.chirp-export > summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.chirp-export[open] > summary { margin-bottom: .75rem; }
+
+/* Repeater page: the four numbers needed to program a radio, larger. */
+.rpt-key { margin-bottom: 1rem; }
+.rpt-key dd { font-size: var(--step-1); font-weight: 700; }
+
+/* Radio configuration page. */
+.file-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0 0; }
+.file-buttons .btn .muted { font-weight: 400; }
+.compare-form { display: flex; flex-direction: column; gap: .4rem; align-items: stretch; }
+.compare-form label { font-size: var(--step--1); color: var(--ink-2); font-weight: 700; }
+.compare-form .btn { align-self: flex-start; }
+.channel-table tbody tr:target td { background: color-mix(in srgb, var(--amber) 30%, var(--surface)); }
+
+/* Diff of two configurations: removed rows red-ruled, added rows green-ruled. */
+.diff-tally { margin: .5rem 0 1rem; }
+.diff-table tr.diff-old td:nth-child(3) { box-shadow: inset 3px 0 0 var(--margin); }
+.diff-table tr.diff-new td:nth-child(3) { box-shadow: inset 3px 0 0 var(--accent); }
+.diff-table tr.diff-old td { color: var(--ink-2); }
+
+/* Contacts index: callsign jump box and the two halves of the page. */
+.call-jump { display: flex; flex-direction: column; gap: .2rem; max-width: 26rem; margin-bottom: 1.25rem; }
+.call-jump label { font-size: var(--step--1); color: var(--ink-2); font-weight: 700; }
+.call-jump-row { display: flex; gap: .4rem; }
+.call-jump-row input { flex: 1; text-transform: uppercase; font-weight: 700; letter-spacing: .03em; }
+.contact-cards, .calls-in-log { margin-bottom: 2rem; }
+.card-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+
+@media (max-width: 720px) {
+  .diff-table tr.diff-old td:nth-child(3), .diff-table tr.diff-new td:nth-child(3) { box-shadow: none; }
+  .diff-table tr.diff-old { border-left-color: var(--margin); border-left-style: solid; }
+  .diff-table tr.diff-new { border-left-color: var(--accent); border-left-style: solid; }
+  .call-jump { max-width: none; }
+}

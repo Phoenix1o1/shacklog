@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% set name = entry.heard or (entry.category|label(SWL_CATEGORIES)) %}
+{% block title %}{{ name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(name, (entry.time_utc|dt) ~ ' UTC' ~ ((' · ' ~ (entry.freq_mhz|freq) ~ ' MHz') if entry.freq_mhz else '') ~ ((' · ' ~ entry.mode) if entry.mode else '')) %}
+  <a class="btn btn-primary" href="{{ url_for('swl.edit', record_id=entry.id) }}">Edit</a>
+  <a class="btn" href="{{ url_for('swl.new', **{'from': entry.id}) }}">Log another like this</a>
+  {% if callsign_like %}<a class="btn btn-quiet" href="{{ url_for('contacts.callsign', call=entry.heard|upper|replace(' ', '')) }}">All about {{ entry.heard|upper }}</a>{% endif %}
+  {{ delete_button(url_for('swl.delete', record_id=entry.id), 'this entry') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Heard</h2>
+      {% if entry.description %}<p><b>{{ entry.description }}</b></p>{% endif %}
+      {{ facts([
+        ('Category', entry.category|label(SWL_CATEGORIES)),
+        ('Frequency', (entry.freq_mhz|freq ~ ' MHz') if entry.freq_mhz else None),
+        ('Band', entry.band), ('Mode', entry.mode), ('Signal', entry.signal),
+        ('End', (entry.time_end|dt ~ ' UTC') if entry.time_end else None),
+        ('Source locator', entry.locator),
+        ('Source position', ('%.4f, %.4f'|format(entry.latitude, entry.longitude)) if entry.latitude is not none and entry.longitude is not none else None),
+        ('Distance', entry.distance_km|km), ('Bearing', entry.bearing_deg|bearing),
+      ]) }}
+    </section>
+
+    <section class="panel">
+      <h2>Receiving station</h2>
+      {% set rpt = entry.repeater %}
+      {{ facts([
+        ('Station', entry.station.name if entry.station else None),
+        ('Receiver', entry.receiver.name if entry.receiver else None),
+        ('Antenna', entry.antenna.name if entry.antenna else None),
+        ('Repeater', rpt.display_name() if rpt else None),
+      ]) }}
+      {% if rpt %}<p class="small"><a href="{{ url_for('repeaters.view', record_id=rpt.id) }}">Open repeater {{ rpt.name }}</a></p>{% endif %}
+      {% if entry.station_id and not entry.station %}<p class="small muted">The station of this entry isn't on this instance (unknown).</p>{% endif %}
+    </section>
+
+    {% if entry.notes or entry.tags %}
+    <section class="panel">
+      <h2>Notes</h2>
+      <div class="prose">{{ entry.notes|textblock }}</div>
+      {{ tag_list(entry.tags) }}
+    </section>
+    {% endif %}
+
+    {{ links_panel('swl', entry, linked, 'Recordings, screenshots & decoded images') }}
+  </div>
+
+  <aside>
+    {% if entry.heard %}
+    <section class="panel">
+      <h2>{{ entry.heard }} in the logs</h2>
+      {% if contact %}<p>{{ contact.name or '' }} {% if contact.qth %}· {{ contact.qth }}{% endif %} <a href="{{ url_for('contacts.view', record_id=contact.id) }}">Contact card</a></p>{% endif %}
+      {% if others %}
+      <h3>Heard before</h3>
+      <ul class="linked-list">
+        {% for o in others %}
+        <li><a href="{{ url_for('swl.view', record_id=o.id) }}">{{ o.time_utc|dt }}</a> <span class="muted">{{ o.freq_mhz|freq }} {{ o.mode or '' }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">First time heard.</p>
+      {% endif %}
+      {% if qsos %}
+      <h3>Worked</h3>
+      <ul class="linked-list">
+        {% for q in qsos %}
+        <li><a href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.time_on|dt }}</a> <span class="muted">{{ q.band or '' }} {{ display_mode(q.mode, q.submode) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% elif callsign_like %}
+      <p><a href="{{ url_for('qsos.new', call=entry.heard|upper|replace(' ', '')) }}">Log a QSO with {{ entry.heard|upper }}</a></p>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% if entry.latitude is not none and entry.longitude is not none %}
+    <p><a class="btn btn-quiet" href="{{ url_for('map.index', layer='swl', near='%.5f,%.5f'|format(entry.latitude, entry.longitude), radius=50) }}">Heard near here, on the map</a></p>
+    {% endif %}
+    {{ record_meta(entry) }}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}Map{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/logs.css') }}">
+{% endblock %}
+{% block content %}
+{% call page_head("Map", "QSOs, stations heard, repeaters and my stations. Tap a point to open the record.") %}
+  {% if back_url %}<a class="btn btn-quiet" href="{{ back_url }}">Back to the list</a>{% endif %}
+{% endcall %}
+
+{% if requested and (active or errors) %}
+<div class="chips-row">
+  <ul class="chips" aria-label="Active filters">
+    <li class="chip"><span>Showing <b>{{ requested.label }}</b> filtered by:</span></li>
+    {% for name, label, shown in active %}<li class="chip"><span>{{ label }}: <b>{{ shown }}</b></span></li>{% endfor %}
+  </ul>
+  <a class="small" href="{{ url_for('map.index') }}">Show everything</a>
+</div>
+{% for e in errors %}<p class="flash flash-error">{{ e }}</p>{% endfor %}
+{% endif %}
+
+<div class="map-controls" id="map-controls">
+  <fieldset>
+    <legend>Layers</legend>
+    {% for l in config.layers %}
+    <label><input type="checkbox" data-layer="{{ l.key }}" {% if l.on %}checked{% endif %}>
+      <span class="map-swatch {{ l.key }}" aria-hidden="true"></span>{{ l.label }}</label>
+    {% endfor %}
+    <label><input type="checkbox" id="map-lines" data-lines="1"> Lines from my position</label>
+  </fieldset>
+  {% if list_layers %}
+  <div class="map-area">
+    <label for="map-list-layer" class="small">List what's in this area:</label>
+    <select id="map-list-layer">
+      {% for l in list_layers %}<option value="{{ l.key }}" {% if requested and requested.key == l.key %}selected{% endif %}>{{ l.label }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-small" type="button" id="map-list-area">List</button>
+  </div>
+  {% endif %}
+</div>
+
+<div id="map" class="map-canvas" role="region" aria-label="Map">
+  <noscript><p class="empty">The map needs JavaScript. Every list can still be filtered by distance from a station or locator.</p></noscript>
+</div>
+<p class="map-status" id="map-status" aria-live="polite"></p>
+<p class="small muted">Map tiles come from OpenStreetMap and need an internet connection; the points are drawn from this logbook even offline. Entries without a position or locator are not shown.</p>
+
+<script type="application/json" id="map-config">{{ config|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/map.js') }}" defer></script>
+{% endblock %}

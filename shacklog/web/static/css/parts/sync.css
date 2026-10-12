@@ -1,0 +1,40 @@
+/*
+  Settings, sync, conflicts and trash pages. Loaded by templates/settings/_layout.html.
+  Uses the custom properties defined in app.css; no new colours or fonts.
+*/
+
+/* ---------- settings ---------- */
+.settings-nav { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 1rem; padding: 0 0 .75rem; border-bottom: 1px solid var(--rule); }
+.settings-nav a { display: inline-block; padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--rule-strong); text-decoration: none; font-size: var(--step--1); color: var(--ink); }
+.settings-nav a:hover { border-color: var(--accent); color: var(--accent); }
+.settings-nav a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.settings-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.settings-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.settings-sub { margin-top: 1.25rem; }
+.settings-grid .record-form { max-width: none; }
+.settings-grid .facts { grid-template-columns: 1fr; }
+.settings-grid .facts dd { font-size: var(--step--1); }
+code.path, .facts dd { overflow-wrap: anywhere; }
+
+/* ---------- sync ---------- */
+.sync-state { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.token-panel { border-color: var(--amber); border-width: 2px; }
+.token-panel .token { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: var(--step-0); letter-spacing: .02em; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ---------- backups ---------- */
+.backup-list { list-style: none; padding: 0; margin: .75rem 0; }
+.backup-list li { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: baseline; padding: .35rem 0; border-bottom: 1px dotted var(--rule); }
+
+/* ---------- conflicts ---------- */
+.conflict-head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; align-items: flex-start; margin-bottom: .5rem; }
+.conflict-head h2 { margin-bottom: .2rem; }
+.conflict-resolved { opacity: .75; }
+.ledger.diff td.diff-old { color: var(--margin); }
+.ledger.diff td.diff-new { color: var(--accent); }
+.ledger.diff td { overflow-wrap: anywhere; max-width: 28rem; }
+
+@media (max-width: 860px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}

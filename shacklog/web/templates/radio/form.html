@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_forms.html" import render_form %}
+{% block title %}{{ title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+{% call render_form(sections, values, errors, choices,
+                    submit='Save' if config else 'Save configuration',
+                    cancel_url=url_for('radio.view', record_id=config.id) if config else url_for('radio.index'),
+                    enctype='multipart/form-data') %}
+<fieldset class="form-section">
+  <legend>CHIRP files</legend>
+  <p class="section-note">Both go to the library. The CSV is read into the channel table and each channel is matched to a known repeater.
+    {% if config %}A new CSV replaces the current channel list (the old one stays in the trash).{% endif %}</p>
+  <div class="grid">
+    <div class="field w-half{% if errors.get('image_file') %} has-error{% endif %}">
+      <label for="f-image_file">Radio image (.img){% if config and config.image_file_id %} — replace{% endif %}</label>
+      <input id="f-image_file" type="file" name="image_file" accept=".img">
+      {% if config and config.image_file %}<p class="field-help">Now: {{ config.image_file.filename }}</p>{% endif %}
+    </div>
+    <div class="field w-half{% if errors.get('csv_file') %} has-error{% endif %}">
+      <label for="f-csv_file">Channel list (.csv){% if config and config.csv_file_id %} — replace{% endif %}</label>
+      <input id="f-csv_file" type="file" name="csv_file" accept=".csv,text/csv">
+      {% if errors.get('csv_file') %}<p class="field-error">{{ errors.csv_file }}</p>{% endif %}
+      {% if config and config.csv_file %}<p class="field-help">Now: {{ config.csv_file.filename }}</p>{% endif %}
+      {% if errors %}<p class="field-help">Choose the files again after fixing the form.</p>{% endif %}
+    </div>
+  </div>
+</fieldset>
+{% endcall %}
+{% endblock %}

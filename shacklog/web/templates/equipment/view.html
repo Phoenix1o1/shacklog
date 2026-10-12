@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(item.name, (item.kind|label(M.EQUIPMENT_KINDS)) ~ ' · ' ~ (item.status|label(M.EQUIPMENT_STATUS))) %}
+  <a class="btn btn-primary" href="{{ url_for('equipment.edit', record_id=item.id) }}">Edit</a>
+  {% if is_radio %}<a class="btn" href="{{ url_for('radio.new', radio=item.id) }}">Save a radio configuration</a>{% endif %}
+  <a class="btn" href="{{ url_for('journal.new', equipment=item.id) }}">Journal entry about it</a>
+  {{ delete_button(url_for('equipment.delete', record_id=item.id), 'this item') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Details</h2>
+      {{ facts([
+        ('Manufacturer', item.manufacturer), ('Model', item.model), ('Serial', item.serial),
+        ('Firmware', item.firmware), ('Frequencies', item.freq_range), ('Connector', item.connector),
+        ('Acquired', item.acquired_on|day), ('Price', item.price), ('Vendor', item.vendor),
+      ]) }}
+      {% if item.url %}<p class="small"><a href="{{ item.url }}" rel="noopener" target="_blank">{{ item.url }}</a></p>{% endif %}
+      {% if item.specs %}<h3>Specifications</h3><div class="prose">{{ item.specs|textblock }}</div>{% endif %}
+      {% if item.notes %}<h3>Notes</h3><div class="prose">{{ item.notes|textblock }}</div>{% endif %}
+      {{ tag_list(item.tags, 'equipment.index') }}
+    </section>
+
+    {% if is_radio or configs %}
+    <section class="panel">
+      <h2>Radio configurations</h2>
+      {% if configs %}
+      <ul class="linked-list">
+        {% for c in configs %}
+        <li><a href="{{ url_for('radio.view', record_id=c.id) }}">{{ c.title }}</a>
+          <span class="muted">{{ c.config_date|day }} {{ c.edition or '' }} {{ c.firmware or '' }}</span>
+          {% if c.is_current %}<span class="badge badge-ok">current</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      <p class="small"><a href="{{ url_for('radio.index', radio=item.id) }}">All configurations of {{ item.name }}</a></p>
+      {% else %}
+      <p class="muted">No CHIRP snapshot saved yet. Save one after each programming session to keep track of what is on the radio.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      <h2>Used in the log</h2>
+      <ul class="tally">
+        <li><b>{{ qso_count }}</b><span>QSOs</span></li>
+        <li><b>{{ swl_count }}</b><span>listening entries</span></li>
+      </ul>
+      <p class="small">
+        {% if qso_as_radio %}<a href="{{ url_for('qsos.index', radio=item.id) }}">{{ qso_as_radio }} QSOs as radio</a>{% endif %}
+        {% if qso_as_antenna %}<a href="{{ url_for('qsos.index', antenna=item.id) }}">{{ qso_as_antenna }} QSOs as antenna</a>{% endif %}
+        {% if swl_as_receiver %}<a href="{{ url_for('swl.index', receiver=item.id) }}">{{ swl_as_receiver }} heard as receiver</a>{% endif %}
+        {% if swl_as_antenna %}<a href="{{ url_for('swl.index', antenna=item.id) }}">{{ swl_as_antenna }} heard as antenna</a>{% endif %}
+      </p>
+      {% if latest_qsos %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr><th class="num" aria-label="Line">#</th><th>Call</th><th>Date & time UTC</th><th>Mode</th><th>As</th></tr></thead>
+        <tbody>
+        {% for q in latest_qsos %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.call }}</a></td>
+          <td class="num" data-label="UTC">{{ q.time_on|dt }}</td>
+          <td data-label="Mode">{{ q.band or '' }} {{ display_mode(q.mode, q.submode) }}</td>
+          <td data-label="As">{{ 'radio' if q.radio_id == item.id else '' }}{% if q.radio_id == item.id and q.antenna_id == item.id %}, {% endif %}{{ 'antenna' if q.antenna_id == item.id else '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% endif %}
+      {% if latest_swl %}
+      <h3>Recently heard with it</h3>
+      <ul class="linked-list">
+        {% for e in latest_swl %}
+        <li><a href="{{ url_for('swl.view', record_id=e.id) }}">{{ e.heard or e.category }}</a> <span class="muted">{{ e.time_utc|dt }} · {{ e.freq_mhz|freq }} MHz</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+
+    {{ links_panel('equipment', item, linked, 'Manuals, files & links') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Journal</h2>
+      {% if journal %}
+      <ul class="linked-list">
+        {% for j in journal %}
+        <li><a href="{{ url_for('journal.view', record_id=j.id) }}">{{ j.title }}</a> <span class="muted">{{ j.time_utc|day }} · {{ j.kind|label(M.JOURNAL_KINDS) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">No tests or diary notes about it yet.</p>
+      {% endif %}
+    </section>
+    {% if stations %}
+    <section class="panel">
+      <h2>Default at</h2>
+      <ul class="linked-list">
+        {% for st in stations %}
+        <li><a href="{{ url_for('stations.view', record_id=st.id) }}">{{ st.name }}</a> <span class="muted">{{ 'radio' if st.radio_id == item.id else 'antenna' }}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {{ record_meta(item) }}
+  </aside>
+</div>
+{% endblock %}

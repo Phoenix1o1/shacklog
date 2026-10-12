@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pagination, count_line, empty, page_head %}
+{% from "_filters.html" import filter_bar, sort_th %}
+{% block title %}Contacts{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% macro call_th(key, label, cls='') %}
+{% set next_dir = 'asc' if (csort == key and cdir == 'desc') else 'desc' %}
+<th class="{{ cls }}" {% if csort == key %}aria-sort="{{ 'descending' if cdir == 'desc' else 'ascending' }}"{% endif %}>
+  <a href="{{ url_with(csort=key, cdir=next_dir) }}#calls">{{ label }}{% if csort == key %}<span class="sort-arrow" aria-hidden="true">{{ '↓' if cdir == 'desc' else '↑' }}</span>{% endif %}</a>
+</th>
+{% endmacro %}
+{% block content %}
+{% call page_head("Contacts", "Notes about the people I talk to, and every callsign in the log.") %}
+  <a class="btn btn-primary" href="{{ url_for('contacts.new') }}">Add contact card</a>
+{% endcall %}
+
+<form class="call-jump" method="get" action="{{ url_for('contacts.jump') }}" role="search">
+  <label for="jump-call">Everything about a callsign</label>
+  <div class="call-jump-row">
+    <input id="jump-call" name="call" class="t-upper" autocapitalize="characters" spellcheck="false" autocomplete="off" placeholder="IK2ABC" required>
+    <button class="btn">Open</button>
+  </div>
+</form>
+
+<section class="contact-cards">
+  <h2>Contact cards <span class="muted small">{{ total_cards }}</span></h2>
+  {{ filter_bar(filters, fchoices, fresult) }}
+  {% if cards %}
+  <div class="ledger-wrap">
+  <table class="ledger">
+    <thead><tr>
+      <th class="num" aria-label="Line">#</th>
+      {{ sort_th('call', 'Callsign', sort_key, sort_dir) }}
+      {{ sort_th('name', 'Name', sort_key, sort_dir) }}
+      <th>QTH</th>
+      <th>Locator</th>
+      <th>Tags</th>
+      {{ sort_th('updated', 'Changed', sort_key, sort_dir, 'num') }}
+    </tr></thead>
+    <tbody>
+    {% for c in cards %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td class="primary" data-label="Callsign"><a class="rowlink call" href="{{ url_for('contacts.callsign', call=c.callsign) }}">{{ c.callsign }}</a></td>
+      <td data-label="Name">{{ c.name or '' }}</td>
+      <td class="wrap" data-label="QTH">{{ c.qth or '' }}{% if c.country %} <span class="muted">{{ c.country }}</span>{% endif %}</td>
+      <td data-label="Locator">{{ c.locator or '' }}</td>
+      <td data-label="Tags">{{ (c.tags|tags)|join(', ') }}</td>
+      <td class="num" data-label="Changed">{{ c.updated_at|day }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if matching_cards > cards|length %}<p class="count-line">Showing the first {{ cards|length }} of {{ matching_cards }} cards. Filter to find the others.</p>{% endif %}
+  {% elif fresult.active %}
+    {{ empty("No contact cards match these filters.", url_for('contacts.index'), "Clear filters") }}
+  {% else %}
+    <p class="muted">No cards yet. A card holds your own notes about someone; open a callsign below and choose “Add a contact card”.</p>
+  {% endif %}
+</section>
+
+<section class="calls-in-log" id="calls">
+  <h2>Callsigns in the log</h2>
+  <form class="filterbar" method="get" action="{{ url_for('contacts.index') }}#calls">
+    {% for k in ('q', 'tags', 'sort', 'dir', 'csort', 'cdir') if request.args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.args.get(k) }}">{% endfor %}
+    <div class="filter-row">
+      <div class="filter filter-call"><label for="flt-call">Callsign</label>
+        <input id="flt-call" name="call" value="{{ call_filter }}" placeholder="IK2* or part" autocapitalize="characters" spellcheck="false" autocomplete="off"></div>
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit">Filter</button>
+      {% if call_filter %}<a class="btn btn-quiet" href="{{ url_with(call=None) }}#calls">Clear</a>{% endif %}
+    </div>
+  </form>
+  {{ count_line(calls, 'callsigns') }}
+  {% if calls.items %}
+  <div class="ledger-wrap">
+  <table class="ledger">
+    <thead><tr>
+      <th class="num" aria-label="Line">#</th>
+      {{ call_th('call', 'Call') }}
+      {{ call_th('count', 'QSOs', 'num') }}
+      {{ call_th('first', 'First', 'num') }}
+      {{ call_th('last', 'Last', 'num') }}
+      <th>Name · QTH</th>
+      <th>Bands</th>
+    </tr></thead>
+    <tbody>
+    {% for r in calls.items %}
+    <tr>
+      <td class="num">{{ calls.first_index + loop.index0 }}</td>
+      <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('contacts.callsign', call=r.call) }}">{{ r.call }}</a>{% if r.card %} <span class="badge" title="Has a contact card">card</span>{% endif %}</td>
+      <td class="num" data-label="QSOs">{{ r.count }}</td>
+      <td class="num" data-label="First">{{ r.first|day }}</td>
+      <td class="num" data-label="Last">{{ r.last|day }}</td>
+      <td class="wrap" data-label="Name">{{ [r.name, r.qth]|select|join(' · ') }}</td>
+      <td data-label="Bands">{{ r.bands|join(' ') }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pagination(calls) }}
+  {% elif call_filter %}
+    {{ empty("No callsign in the log matches “" ~ call_filter ~ "”.", url_for('contacts.index') ~ '#calls', "Clear filter") }}
+  {% else %}
+    {{ empty("The log is empty. Callsigns appear here as you log QSOs.", url_for('qsos.new'), "Log QSO") }}
+  {% endif %}
+</section>
+{% endblock %}

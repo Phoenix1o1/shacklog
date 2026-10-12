@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% block title %}{{ rep.name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/parts/reference.css') }}">{% endblock %}
+{% block content %}
+{% call page_head(rep.name, [rep.callsign, rep.ident, (rep.output_mhz|freq ~ ' MHz') if rep.output_mhz else None, rep.kind|label(M.REPEATER_KINDS)]|select|join(' · ')) %}
+  <a class="btn btn-primary" href="{{ url_for('qsos.new', repeater=rep.id) }}">Log QSO via this repeater</a>
+  <a class="btn" href="{{ url_for('swl.new', repeater=rep.id) }}">Log something heard</a>
+  <a class="btn" href="{{ url_for('repeaters.edit', record_id=rep.id) }}">Edit</a>
+  {{ delete_button(url_for('repeaters.delete', record_id=rep.id), 'this repeater') }}
+{% endcall %}
+
+<div class="detail-grid">
+  <div>
+    <section class="panel">
+      <h2>Frequencies & access</h2>
+      <dl class="facts rpt-key">
+        <div><dt>Output (listen)</dt><dd>{{ rep.output_mhz|freq or '—' }} MHz</dd></div>
+        <div><dt>Input (transmit)</dt><dd>{{ rep.input_mhz|freq or '—' }} MHz</dd></div>
+        <div><dt>Shift</dt><dd>{% if rep.offset_mhz is not none %}{{ '%+.3f'|format(rep.offset_mhz) }} MHz{% else %}simplex / unknown{% endif %}</dd></div>
+        <div><dt>Access tone</dt><dd>{% if rep.ctcss_up %}{{ rep.ctcss_up }} Hz{% elif rep.dcs_code %}DCS {{ rep.dcs_code }}{% else %}none{% endif %}</dd></div>
+      </dl>
+      {{ facts([
+        ('Band', band),
+        ('Tone it sends', (rep.ctcss_down|string ~ ' Hz') if rep.ctcss_down else None),
+        ('DMR colour code', rep.color_code),
+        ('Talkgroups', rep.talkgroups), ('Network', rep.network),
+        ('EchoLink node', rep.echolink_node),
+        ('Status', rep.status|label(M.REPEATER_STATUS)),
+      ]) }}
+    </section>
+
+    <section class="panel">
+      <h2>Site</h2>
+      {{ facts([
+        ('Site', rep.location_name), ('Locator', rep.locator),
+        ('Coordinates', ('%.5f, %.5f'|format(rep.latitude, rep.longitude)) if rep.has_position else None),
+        ('Altitude', (rep.altitude_m|round|int|string ~ ' m') if rep.altitude_m is not none else None),
+        ('Region', rep.region), ('Country', rep.country),
+        ('Source', rep.source), ('Last verified', rep.last_verified|day),
+      ]) }}
+      {% if from_stations %}
+      <h3>From my stations</h3>
+      <ul class="linked-list">
+        {% for st, km, brg in from_stations %}
+        <li><a href="{{ url_for('stations.view', record_id=st.id) }}">{{ st.name }}</a> <b class="num">{{ km|km }}</b> <span class="muted">{{ brg|bearing }}</span></li>
+        {% endfor %}
+      </ul>
+      {% elif not rep.has_position %}
+      <p class="muted">Add a locator or coordinates to see distances from your stations.</p>
+      {% endif %}
+      {% if rep.notes %}<div class="prose">{{ rep.notes|textblock }}</div>{% endif %}
+      {{ tag_list(rep.tags, 'repeaters.index') }}
+    </section>
+
+    <section class="panel">
+      <h2>QSOs via {{ rep.callsign or rep.name }}</h2>
+      {% if latest_qsos %}
+      <div class="ledger-wrap">
+      <table class="ledger">
+        <thead><tr><th class="num" aria-label="Line">#</th><th>Call</th><th>Date & time UTC</th><th>Mode</th><th>Name · QTH</th><th>Station</th></tr></thead>
+        <tbody>
+        {% for q in latest_qsos %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td class="primary" data-label="Call"><a class="rowlink call" href="{{ url_for('qsos.view', record_id=q.id) }}">{{ q.call }}</a></td>
+          <td class="num" data-label="UTC">{{ q.time_on|dt }}</td>
+          <td data-label="Mode">{{ display_mode(q.mode, q.submode) }}</td>
+          <td class="wrap" data-label="Name">{{ [q.name, q.qth]|select|join(' · ') }}</td>
+          <td data-label="Station">{{ q.station.name if q.station else '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <p class="small"><a href="{{ url_for('qsos.index', repeater=rep.id) }}">All {{ qso_count }} QSOs via this repeater</a></p>
+      {% else %}
+      <p class="muted">No QSOs through this repeater yet.</p>
+      {% endif %}
+    </section>
+
+    {{ links_panel('repeater', rep, linked, 'Documents, photos & links') }}
+  </div>
+
+  <aside>
+    <section class="panel">
+      <h2>Programmed in</h2>
+      {% if channels %}
+      <ul class="linked-list">
+        {% for ch, cfg in channels %}
+        <li><a href="{{ url_for('radio.view', record_id=cfg.id) }}#ch-{{ ch.location }}">{{ cfg.title }}</a>
+          <span class="muted">memory {{ ch.location }} “{{ ch.name or '' }}”</span>
+          {% if cfg.is_current %}<span class="badge badge-ok">current</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Not in any saved radio configuration.</p>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <h2>Heard on it</h2>
+      {% if latest_swl %}
+      <ul class="linked-list">
+        {% for e in latest_swl %}
+        <li><a href="{{ url_for('swl.view', record_id=e.id) }}">{{ e.heard or e.category }}</a> <span class="muted">{{ e.time_utc|dt }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="small"><a href="{{ url_for('swl.index', repeater=rep.id) }}">All {{ swl_count }} listening entries</a></p>
+      {% else %}
+      <p class="muted">Nothing in the listening log.</p>
+      {% endif %}
+    </section>
+    {{ record_meta(rep) }}
+  </aside>
+</div>
+{% endblock %}
