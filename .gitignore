@@ -27,3 +27,10 @@ Thumbs.db
 # Build virtualenv
 .venv-build/
 deploy/shacklog-data/
+
+# Local-only folders in a working copy on a PC
+_archive/
+_incoming/
+ShackLog-import-*.zip
+*.bundle
+dist-new/
