@@ -62,7 +62,7 @@ call .venv-build\Scripts\activate.bat
 python -m pip install --quiet --upgrade pip
 pip install --quiet -r requirements.txt -r requirements-dev.txt || goto :restart_old
 echo Running the tests...
-python -m pytest -q -p no:cacheprovider || (echo Tests failed: keeping the old version. & goto :restart_old)
+python -m pytest -q tests || (echo Tests failed: keeping the old version. & goto :restart_old)
 echo Building ShackLog.exe...
 if exist dist-new rmdir /s /q dist-new
 pyinstaller packaging\shacklog.spec --noconfirm --distpath dist-new --log-level WARN || goto :restart_old

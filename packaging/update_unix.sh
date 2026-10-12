@@ -21,7 +21,7 @@ if [ -x dist/ShackLog ]; then
   # shellcheck disable=SC1091
   source .venv-build/bin/activate
   pip install -q -r requirements.txt -r requirements-dev.txt
-  python -m pytest -q -p no:cacheprovider
+  python -m pytest -q tests
   pyinstaller packaging/shacklog.spec --noconfirm --distpath dist-new --log-level WARN
   mv -f dist-new/ShackLog dist/ShackLog && rm -rf dist-new
   nohup "$REPO/dist/ShackLog" >/dev/null 2>&1 &

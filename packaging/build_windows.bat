@@ -8,7 +8,7 @@ python -m venv .venv-build || goto :error
 call .venv-build\Scripts\activate.bat
 python -m pip install --upgrade pip || goto :error
 pip install -r requirements.txt -r requirements-dev.txt || goto :error
-python -m pytest -q || goto :error
+python -m pytest -q tests || goto :error
 pyinstaller packaging\shacklog.spec --noconfirm || goto :error
 echo.
 echo Built dist\ShackLog.exe
