@@ -23,3 +23,7 @@ secret.key
 .idea/
 .DS_Store
 Thumbs.db
+
+# Build virtualenv
+.venv-build/
+deploy/shacklog-data/

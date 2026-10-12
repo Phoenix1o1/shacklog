@@ -1,0 +1,66 @@
+# Tests on every push; executables for Windows, Linux and macOS on every push to main
+# (downloadable from the run's "Artifacts") and attached to a GitHub Release when a tag
+# like v1.0.0 is pushed.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write  # needed to attach binaries to releases
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  executable:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            binary: dist/ShackLog.exe
+            asset: ShackLog-windows.exe
+          - os: ubuntu-22.04  # older glibc = runs on more Linux systems
+            binary: dist/ShackLog
+            asset: ShackLog-linux
+          - os: macos-latest
+            binary: dist/ShackLog
+            asset: ShackLog-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pyinstaller packaging/shacklog.spec --noconfirm
+      - name: Smoke test and rename per platform
+        shell: bash
+        run: |
+          ${{ matrix.binary }} --version
+          mkdir -p release
+          cp "${{ matrix.binary }}" "release/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: release/${{ matrix.asset }}
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/${{ matrix.asset }}
+          name: ShackLog ${{ github.ref_name }}
+          fail_on_unmatched_files: false

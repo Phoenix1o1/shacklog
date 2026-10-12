@@ -1,0 +1,24 @@
+# systemd unit for a Debian/Ubuntu LXC container on Proxmox (no Docker).
+# Install: see deploy/PROXMOX.md, option B.
+[Unit]
+Description=ShackLog hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=shacklog
+Group=shacklog
+WorkingDirectory=/opt/shacklog
+Environment=SHACKLOG_DATA=/var/lib/shacklog
+ExecStart=/opt/shacklog/.venv/bin/python -m shacklog serve --host 0.0.0.0 --port 8573
+Restart=on-failure
+RestartSec=5
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/shacklog
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
