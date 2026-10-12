@@ -8,6 +8,15 @@
 
 {% if unresolved %}
 <p class="muted">{{ unresolved }} to review. <b>Restore</b> puts the kept version back (it then syncs everywhere); <b>Dismiss</b> accepts the current one and keeps the old version on file.</p>
+<div class="quick-actions">
+  {% for peer_id, peer_name, n in sources %}
+  <form method="post" action="{{ url_for('settings.dismiss_all_conflicts') }}" class="inline-form"
+        onsubmit="return confirm('Accept the current versions of all {{ n }} from {{ peer_name or 'this source' }}? The older versions stay on file.');">
+    {{ csrf() }}<input type="hidden" name="peer_id" value="{{ peer_id or '' }}">
+    <button class="btn btn-small">Dismiss all {{ n }} from {{ peer_name or 'unknown source' }}</button>
+  </form>
+  {% endfor %}
+</div>
 {% endif %}
 {{ count_line(page, 'kept versions') }}
 

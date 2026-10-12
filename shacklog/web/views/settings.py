@@ -385,8 +385,29 @@ def conflicts():
     page = h.paginate(query, per_page=20)
     views = [sync_engine.describe_conflict(s, c) for c in page.items]
     unresolved = s.query(SyncConflict).filter(SyncConflict.resolved_at.is_(None)).count()
+    sources = (s.query(SyncConflict.peer_id, SyncConflict.peer_name, func.count())
+               .filter(SyncConflict.resolved_at.is_(None))
+               .group_by(SyncConflict.peer_id, SyncConflict.peer_name).all())
     return render_template("settings/conflicts.html", page=page, views=views,
-                           unresolved=unresolved, label_of=_label_of)
+                           unresolved=unresolved, label_of=_label_of, sources=sources)
+
+
+@bp.route("/conflicts/dismiss-all", methods=["POST"])
+def dismiss_all_conflicts():
+    """Accept the current versions of every open conflict from one source (e.g. an import
+    that deliberately updated records). The old versions stay on file."""
+    from shacklog.services import sync_engine
+
+    s = h.session()
+    peer = request.form.get("peer_id") or None
+    query = s.query(SyncConflict).filter(SyncConflict.resolved_at.is_(None))
+    query = query.filter(SyncConflict.peer_id == peer) if peer else query.filter(SyncConflict.peer_id.is_(None))
+    ids = [c.id for c in query.all()]
+    for conflict_id in ids:
+        sync_engine.dismiss_conflict(s, conflict_id)
+    s.commit()
+    flash(f"Dismissed {len(ids)}. The older versions are still stored under Resolved.", "ok")
+    return redirect(url_for(".conflicts"))
 
 
 def _label_of(table: str) -> str:
