@@ -367,7 +367,11 @@ def delete(record_id: str):
 def _harden(resp: Response) -> Response:
     """Headers on every byte response: never sniff, never run as a page of this origin."""
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["Content-Security-Policy"] = "sandbox"
+    if resp.mimetype != PDF_MIME:
+        # Chrome refuses to show a PDF under a sandbox CSP ("blocked by Chrome"). A PDF
+        # served as application/pdf with nosniff opens in the browser's own viewer, not
+        # as a page of this origin, so it doesn't need the sandbox.
+        resp.headers["Content-Security-Policy"] = "sandbox"
     resp.headers.setdefault("Cache-Control", "private, max-age=3600")
     return resp
 

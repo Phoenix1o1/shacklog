@@ -16,13 +16,28 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 = Debian 12 / Proxmox host, 3.13 = Debian 13 container, 3.14 = Andrea's PC
+        python: ["3.11", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m pytest -q
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint shell scripts
+        run: |
+          shellcheck -S warning deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
+            deploy/proxmox/shacklog-lxc.sh packaging/build_unix.sh packaging/update_unix.sh
 
   executable:
     needs: test

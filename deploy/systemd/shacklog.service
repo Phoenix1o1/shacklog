@@ -1,0 +1,28 @@
+# ShackLog hub service (installed by deploy/install.sh; managed with shacklog-ctl).
+#
+# No ProtectSystem/PrivateTmp/ProtectHome here on purpose: they need mount namespaces,
+# which unprivileged LXC containers often refuse ("status=226/NAMESPACE" and the service
+# never starts). The container itself is the isolation boundary.
+[Unit]
+Description=ShackLog hub (amateur radio logbook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shacklog
+Group=shacklog
+WorkingDirectory=/opt/shacklog
+EnvironmentFile=-/etc/shacklog/shacklog.env
+# Tells the web UI that Settings › Program can ask for update/restart/stop.
+Environment=SHACKLOG_CONTROL=systemd
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/shacklog/.venv/bin/python -m shacklog serve --host ${SHACKLOG_HOST} --port ${SHACKLOG_PORT} $SHACKLOG_ARGS
+# "Restart" in the web UI exits with status 75; always come back unless stopped by systemctl.
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

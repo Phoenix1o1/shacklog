@@ -29,6 +29,10 @@ DEFAULTS: dict[str, object] = {
     "backup_keep_daily": 14,
     "backup_keep_import": 20,
     "last_backup_date": None,
+    "backup_mirror_dir": None,  # second folder for backup copies (OneDrive, NAS share…)
+    "backup_mirror_keep": 30,
+    # --- OFFgrid-SDR (desktop) ---
+    "offgrid_sdr_path": None,  # full path of OFFgrid-SDR's index.html; None = auto-detect
 }
 
 

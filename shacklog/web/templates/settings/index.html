@@ -98,7 +98,7 @@
         ('Instance ID', about.instance_id),
         ('Database version', about.schema_version),
       ]) }}
-      <p class="small muted">Back up by copying the whole data folder, or use <a href="{{ url_for('settings.data') }}">Import, export &amp; backups</a>.</p>
+      <p class="small muted"><a href="{{ url_for('settings.program') }}">Program &amp; updates</a> opens the data folder, updates {{ app_name }} and sets a second backup folder.</p>
     </section>
     {% if can_quit %}
     <section class="panel">

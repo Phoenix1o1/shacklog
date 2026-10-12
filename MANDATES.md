@@ -32,6 +32,13 @@ If a directive and the code disagree, the directive wins and the code gets fixed
 | Web access | **Single user**, home **LAN or own VPN** (Tailscale/WireGuard). One password. |
 | Name | **ShackLog** (one constant, `APP_NAME` in `shacklog/__init__.py`). |
 | Language | English UI. Strings live in templates so a translation can be added later. |
+| Hub deployment | Its **own unprivileged LXC** on Proxmox, created by `deploy/proxmox/shacklog-lxc.sh` (helper-script style: cores, RAM, disk, storage, network, NAS backup job). Never installed on the Proxmox host itself. |
+| Server controls | `shacklog-ctl` (status, start, stop, restart, update = git pull + reinstall + restart with rollback, backup, uninstall) and the same buttons in *Settings › Program*. |
+| Uninstall | `deploy/uninstall.sh` asks **keep data** (archive + leave in place) or **remove** (type DELETE). |
+| PC updates | *Settings › Program › Update now* = git pull + rebuild + restart (`packaging/update_windows.bat`). The PC copy is a git working copy kept in sync with GitHub. |
+| Data location (PC) | `%LOCALAPPDATA%\ShackLog` (outside OneDrive: a syncing cloud folder can corrupt a live SQLite file). Shown at startup and in *Settings › Program*; backups can be mirrored to a OneDrive folder. |
+| OFFgrid-SDR | Not bundled (someone else's project). *SDR monitor* serves the user's own copy on localhost (WebUSB) beside a quick listening log, and exports repeaters/channels as OFFgrid-SDR memories for Scan. |
+| Knowledge base | A view of the library: notes (Markdown), quick references, manuals, band plans; pinned items on the dashboard. Existing docs, manuals and printables are imported into it. |
 | Version control | Private GitHub repo **Phoenix1o1/shacklog**. Commit and push **automatically at every milestone**, without being asked. |
 
 ## 3. Engineering rules (non-negotiable)
@@ -73,3 +80,8 @@ If a directive and the code disagree, the directive wins and the code gets fixed
 
 - **2026-10-12** — File created from the original request and the four answers in §2.
 - **2026-10-12** — Andrea: create a GitHub repo, commit, and keep tracking automatically from now on.
+- **2026-10-12** — Andrea: keep the local copy synced with git; uninstall script with keep/remove data;
+  dedicated Proxmox LXC in helper-script style (cores, RAM, storage, NAS backups); server commands to
+  stop/restart/update (git pull + rebuild); update-from-git on the PC too; integrate OFFgrid-SDR for
+  monitoring during a session (local only); integrate existing documents, quick references and the
+  knowledge base; preserve current data; explain where the database is.

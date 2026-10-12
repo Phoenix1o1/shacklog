@@ -208,7 +208,10 @@ SWL_CATEGORIES = [
 JOURNAL_KINDS = [("test", "Antenna & test"), ("diary", "Station diary")]
 
 FILE_CATEGORIES = [
+    ("note", "Note / guide"),
+    ("reference", "Quick reference / cheat sheet"),
     ("manual", "Manual"),
+    ("bandplan", "Band plan / regulations"),
     ("datasheet", "Datasheet / specs"),
     ("schematic", "Schematic / diagram"),
     ("chirp", "CHIRP image / CSV"),

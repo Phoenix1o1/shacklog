@@ -3,3 +3,4 @@ sqlalchemy>=2.0
 waitress>=3.0
 platformdirs>=4.0
 pypdf>=4.0
+markdown>=3.5

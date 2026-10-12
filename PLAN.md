@@ -29,7 +29,7 @@ One codebase, one executable, different command-line modes:
 | `shacklog sync` | Run one sync with the configured hub (for cron/timers). |
 | `shacklog import FILE` | Import an ADIF, CHIRP CSV, database or bundle file. |
 | `shacklog export-bundle OUT.zip` | Database + all stored files in one zip. |
-| `shacklog backup` / `set-password` / `info` | Maintenance. |
+| `shacklog backup` / `set-password` / `info` / `where` | Maintenance; `where --open` shows the data folder. |
 
 **Data directory** (database, stored files, backups, secret key), first match wins:
 1. `--data-dir PATH` or the `SHACKLOG_DATA` environment variable;
@@ -211,6 +211,12 @@ URL convention per section `X`: `/X/` list+filters · `/X/new` · `/X/<id>` ·
 CHIRP archive + generator, library, links, callsign pages, search, filters, saved
 filters, map, stats, ADIF/CHIRP/CSV import-export, sync, bundles, backups, conflicts,
 trash, desktop/server modes, executables, Docker/LXC deployment.
+
+**Phase 1b — done 12 Oct 2026**: dedicated Proxmox LXC creator (`deploy/proxmox/shacklog-lxc.sh`),
+`shacklog-ctl` (update with rollback, restart, stop, backup, uninstall), keep/remove-data uninstaller,
+web server controls via a systemd path unit, update-from-git on PCs, WAL checkpointing + clean exit,
+backup mirror folder, knowledge base (Markdown notes, references, manuals, pins), SDR monitor with
+OFFgrid-SDR and memory export.
 
 **Phase 2**: DXCC/country from `cty.dat` · callbook lookup (QRZ/HamQTH) with cache ·
 QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers

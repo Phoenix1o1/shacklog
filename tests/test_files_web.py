@@ -78,7 +78,11 @@ def test_raw_headers_are_safe(client, s, name, content, inline, ctype):
     r = client.get(f"/files/{f.id}/raw")
     assert r.status_code == 200 and r.data == content
     assert r.headers["X-Content-Type-Options"] == "nosniff"
-    assert r.headers["Content-Security-Policy"] == "sandbox"
+    # PDFs are exempt: Chrome blocks PDFs under a sandbox CSP.
+    if ctype == "application/pdf":
+        assert "Content-Security-Policy" not in r.headers
+    else:
+        assert r.headers["Content-Security-Policy"] == "sandbox"
     assert r.headers["Content-Type"] == ctype
     disposition = r.headers.get("Content-Disposition", "")
     assert disposition.startswith("inline") if inline else disposition.startswith("attachment")

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head, links_panel, tag_list, record_meta %}
+{% block title %}{{ f.title or f.filename }}{% endblock %}
+{% block content %}
+{% call page_head(f.title or f.filename, category_label ~ ' · ' ~ f.filename) %}
+  {% if kind == 'markdown' %}<a class="btn btn-primary" href="{{ url_for('kb.edit_note', record_id=f.id) }}">Edit note</a>{% endif %}
+  {% if present %}<a class="btn" href="{{ url_for('files.download', record_id=f.id) }}">Download</a>{% endif %}
+  {% if kind == 'pdf' and present %}<a class="btn" href="{{ url_for('files.raw', record_id=f.id) }}" target="_blank" rel="noopener">Open in a new tab</a>{% endif %}
+  <form method="post" action="{{ url_for('kb.pin', record_id=f.id) }}" class="inline-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="pin" value="{{ '0' if pinned else '1' }}">
+    <button class="btn btn-quiet">{{ 'Unpin' if pinned else 'Pin to top' }}</button>
+  </form>
+  <a class="btn btn-quiet" href="{{ url_for('files.view', record_id=f.id) }}">File details</a>
+{% endcall %}
+
+{% if not present %}
+<div class="flash flash-warn">This file's contents are on another instance. <a href="{{ url_for('files.view', record_id=f.id) }}">File details</a> can fetch them from the hub.</div>
+{% elif kind == 'markdown' %}
+<article class="panel prose kb-article">{{ body }}</article>
+{% elif kind == 'text' %}
+<pre class="panel kb-text">{{ body }}</pre>
+{% elif kind == 'pdf' %}
+<iframe class="kb-pdf" src="{{ url_for('files.raw', record_id=f.id) }}" title="{{ f.title or f.filename }}"></iframe>
+{% else %}
+<p class="panel">This kind of file opens in its own program: <a href="{{ url_for('files.download', record_id=f.id) }}">download it</a>.</p>
+{% endif %}
+
+{% if f.description %}<p>{{ f.description }}</p>{% endif %}
+{{ tag_list(f.tags) }}
+{{ links_panel('file', f, linked, 'Linked equipment & records') }}
+{{ record_meta(f) }}
+{% endblock %}

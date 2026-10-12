@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import secrets
 import threading
 import time
@@ -158,7 +159,8 @@ def index():
     )
 
 
-def _quit():
+def _quit(message: str = "quit"):
+    """Answer with the "stopped" page, then stop the process a moment later."""
     shutdown = current_app.config["SHUTDOWN"]
 
     def later():
@@ -169,7 +171,7 @@ def _quit():
             log.exception("Shutdown failed")
 
     threading.Thread(target=later, name="shacklog-quit", daemon=True).start()
-    return render_template("settings/stopped.html")
+    return render_template("settings/stopped.html", reason=message)
 
 
 # ---------------------------------------------------------------------------
@@ -469,3 +471,102 @@ def restore(entity: str, record_id: str):
     if back.startswith("/") and not back.startswith("//"):
         return redirect(back)
     return redirect(h.entity_url(entity, obj.id) or url_for(".trash"))
+
+
+# ---------------------------------------------------------------------------
+# Program: data folder, updates, server controls, backup mirror, OFFgrid-SDR path
+# ---------------------------------------------------------------------------
+
+@bp.route("/program", methods=["GET", "POST"])
+def program():
+    from shacklog.services import system
+
+    s = h.session()
+    desktop = current_app.config["MODE"] == "desktop"
+    paths = _paths()
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        if action == "open_data" and desktop:
+            if system.open_folder(paths.data_dir):
+                flash("Opened the data folder.", "ok")
+            else:
+                flash(f"Couldn't open the folder. It is {paths.data_dir}", "error")
+        elif action == "mirror":
+            folder = request.form.get("backup_mirror_dir", "").strip() or None
+            if folder:
+                try:
+                    Path(folder).expanduser().mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    flash(f"Can't use that folder: {exc}", "error")
+                    return redirect(url_for(".program"))
+            h.save_setting("backup_mirror_dir", folder)
+            try:
+                keep = max(1, min(365, int(request.form.get("backup_mirror_keep", 30))))
+            except ValueError:
+                keep = 30
+            h.save_setting("backup_mirror_keep", keep)
+            s.commit()
+            if folder:
+                from shacklog.services import backup
+
+                made = backup.create_backup(_db(), paths.backups, reason="manual")
+                flash(f"Backups will also be copied to {folder}. First copy: {made.name}.", "ok")
+            else:
+                flash("Backups are kept in the data folder only.", "ok")
+        elif action == "sdr_path" and desktop:
+            value = request.form.get("offgrid_sdr_path", "").strip().strip('"') or None
+            if value and not Path(value).expanduser().is_file():
+                flash("No file there. Point to OFFgrid-SDR's index.html.", "error")
+            else:
+                h.save_setting("offgrid_sdr_path", value)
+                s.commit()
+                flash("Saved the OFFgrid-SDR location.", "ok")
+        elif action == "check_update":
+            status = system.repo_status(check_remote=True)
+            if status.error:
+                flash(f"Couldn't reach GitHub: {status.error}", "error")
+            elif status.behind == 0:
+                flash(f"Up to date (version {__version__}, commit {status.commit}).", "ok")
+            elif status.behind:
+                flash(f"{status.behind} new change{'s' if status.behind != 1 else ''} on GitHub. "
+                      "Use “Update now”.", "ok")
+        elif action == "update" and desktop:
+            status = system.repo_status()
+            if not status.updatable:
+                abort(400, description="This copy isn't a git working copy, or git is missing.")
+            system.launch_desktop_update(status.path)
+            return _quit(message="update")
+        elif action in system.SERVER_REQUESTS and not desktop:
+            if action == "restart" and not system.control_available():
+                return _quit(message="restart")
+            if not system.control_available():
+                abort(400, description="Server controls need the systemd install from deploy/.")
+            system.write_server_request(paths.data_dir, action)
+            return render_template("settings/stopped.html", reason=action)
+        else:
+            abort(400, description="Unknown action.")
+        return redirect(url_for(".program"))
+
+    status = system.repo_status()
+    return render_template(
+        "settings/program.html", settings_tab="program", desktop=desktop,
+        data_dir=str(paths.data_dir), database=str(paths.database), status=status,
+        version=__version__, control=system.control_available(),
+        control_log=system.last_control_log(paths.data_dir),
+        mirror_dir=h.setting("backup_mirror_dir") or "",
+        mirror_keep=h.setting("backup_mirror_keep") or 30,
+        sdr_path=h.setting("offgrid_sdr_path") or "",
+        sdr_found=_sdr_found(),
+        can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
+        os_name=os.name,
+    )
+
+
+def _sdr_found() -> str | None:
+    try:
+        from shacklog.web.views.sdr import find_offgrid_sdr
+
+        found = find_offgrid_sdr()
+        return str(found) if found else None
+    except Exception:
+        return None

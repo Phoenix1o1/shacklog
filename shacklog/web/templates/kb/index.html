@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head, empty %}
+{% block title %}Knowledge base{% endblock %}
+{% block content %}
+{% call page_head("Knowledge base", "Notes, quick references, manuals and band plans. Search looks inside PDFs and notes too.") %}
+  <a class="btn btn-primary" href="{{ url_for('kb.new_note') }}">Write a note</a>
+  <a class="btn" href="{{ url_for('files.upload') }}">Add files</a>
+{% endcall %}
+
+<form class="filterbar kb-search" method="get">
+  <div class="filter-row">
+    <div class="filter" style="flex: 4 1 20rem"><label for="kb-q">Search the knowledge base</label>
+      <input id="kb-q" type="search" name="q" value="{{ q }}" placeholder="CTCSS, repeater shift, TM-733 reset, band plan…"></div>
+  </div>
+  <div class="filter-actions"><button class="btn btn-primary">Search</button>
+    {% if q %}<a class="btn btn-quiet" href="{{ url_for('kb.index') }}">Clear</a>{% endif %}</div>
+</form>
+
+{% macro entry(f) %}
+<li class="kb-entry">
+  <a class="kb-title" href="{{ url_for('kb.view', record_id=f.id) }}">{{ f.title or f.filename }}</a>
+  <span class="muted small">{{ f.filename.rsplit('.', 1)[-1]|upper if '.' in f.filename else '' }} · {{ f.size|filesize }}</span>
+  {% if snippets.get(f.id) %}<p class="hit-snip small">{{ snippets[f.id]|highlight }}</p>
+  {% elif f.description %}<p class="small muted">{{ f.description }}</p>{% endif %}
+</li>
+{% endmacro %}
+
+{% if pinned %}
+<section class="panel kb-pinned">
+  <h2>Pinned</h2>
+  <ul class="kb-list">{% for f in pinned %}{{ entry(f) }}{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% for category, label, items in groups %}
+<section class="panel">
+  <h2>{{ label }} <span class="muted small">{{ items|length }}</span></h2>
+  <ul class="kb-list">{% for f in items %}{{ entry(f) }}{% endfor %}</ul>
+</section>
+{% endfor %}
+
+{% if not total %}
+  {% if q %}
+  {{ empty("Nothing in the knowledge base matches “" ~ q ~ "”.", url_for('search.index', q=q), "Search everything instead") }}
+  {% else %}
+  {{ empty("The knowledge base is empty. Add manuals, cheat sheets and notes, or write a note here.", url_for('kb.new_note'), "Write a note") }}
+  {% endif %}
+{% endif %}
+{% endblock %}

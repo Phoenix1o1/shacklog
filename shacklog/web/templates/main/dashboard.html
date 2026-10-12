@@ -5,6 +5,7 @@
 {% call page_head(app_name, 'Station ' ~ (default_station.name if default_station else 'not set') ~ (' · ' ~ default_station.callsign if default_station and default_station.callsign else '')) %}
   <a class="btn btn-primary" href="{{ url_for('qsos.new') }}">Log QSO</a>
   <a class="btn" href="{{ url_for('swl.new') }}">Log something heard</a>
+  {% if mode == 'desktop' %}<a class="btn" href="{{ url_for('sdr.index') }}">SDR monitor</a>{% endif %}
   <a class="btn" href="{{ url_for('journal.new') }}">Journal entry</a>
   <a class="btn" href="{{ url_for('files.upload') }}">Add to library</a>
 {% endcall %}
@@ -21,6 +22,16 @@
       <li><b>{{ tally.files }}</b><span>library files</span></li>
     </ul>
   </section>
+
+  {% if pinned %}
+  <section class="panel wide">
+    <h2>Pinned references</h2>
+    <ul class="quick-actions kb-pins">
+      {% for f in pinned %}<li><a class="btn" href="{{ url_for('kb.view', record_id=f.id) }}">{{ f.title or f.filename }}</a></li>{% endfor %}
+      <li><a class="btn btn-quiet" href="{{ url_for('kb.index') }}">Knowledge base</a></li>
+    </ul>
+  </section>
+  {% endif %}
 
   <section class="panel">
     <h2>Latest QSOs</h2>

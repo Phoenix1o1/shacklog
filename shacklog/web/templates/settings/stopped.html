@@ -1,9 +1,45 @@
 {% extends "base.html" %}
-{% block title %}Stopped{% endblock %}
+{% block title %}{{ {'update': 'Updating', 'restart': 'Restarting', 'stop': 'Stopping'}.get(reason, 'Stopped') }}{% endblock %}
 {% block page_class %}page-narrow{% endblock %}
+{% block head %}
+{% if reason in ('update', 'restart') %}
+{# Come back by ourselves once the new copy answers. #}
+<script>
+  (function () {
+    var tries = 0;
+    function poll() {
+      tries += 1;
+      fetch("/healthz", { cache: "no-store" }).then(function (r) {
+        if (r.ok) { window.location.href = "/settings/program"; } else { schedule(); }
+      }).catch(schedule);
+    }
+    function schedule() { if (tries < 300) setTimeout(poll, 3000); }
+    setTimeout(poll, 8000);
+  })();
+</script>
+{% endif %}
+{% endblock %}
 {% block content %}
 <div class="empty">
-  <h1>{{ app_name }} has stopped</h1>
-  <p>You can close this tab. Start {{ app_name }} again from its icon whenever you need it.</p>
+  {% if reason == 'update' %}
+    <h1>Updating {{ app_name }}</h1>
+    {% if mode == 'desktop' %}
+    <p>A window shows the progress: it downloads the latest version from GitHub, rebuilds the
+       program and starts it again. This page reloads by itself when it's back (usually 1–3 minutes).</p>
+    {% else %}
+    <p>The server is pulling the latest version from GitHub, reinstalling and restarting.
+       This page reloads by itself when it's back.</p>
+    {% endif %}
+  {% elif reason == 'restart' %}
+    <h1>Restarting {{ app_name }}</h1>
+    <p>This page reloads by itself in a few seconds.</p>
+  {% elif reason == 'stop' %}
+    <h1>{{ app_name }} is stopping</h1>
+    <p>The server will stay off until you start it again on Proxmox with
+       <code>shacklog-ctl start</code>.</p>
+  {% else %}
+    <h1>{{ app_name }} has stopped</h1>
+    <p>You can close this tab. Start {{ app_name }} again from its icon whenever you need it.</p>
+  {% endif %}
 </div>
 {% endblock %}

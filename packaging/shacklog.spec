@@ -25,6 +25,11 @@ hidden = own_modules + collect_submodules("waitress") + [
     "sqlalchemy.dialects.sqlite",
     "platformdirs",
     "pypdf",
+    "markdown",
+    "markdown.extensions.tables",
+    "markdown.extensions.fenced_code",
+    "markdown.extensions.sane_lists",
+    "markdown.extensions.toc",
 ]
 
 a = Analysis(  # noqa: F821

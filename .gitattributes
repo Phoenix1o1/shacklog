@@ -1,0 +1,7 @@
+# Line endings: batch files must be CRLF on Windows, shell scripts LF everywhere.
+* text=auto
+*.bat text eol=crlf
+*.sh text eol=lf
+*.service text eol=lf
+*.path text eol=lf
+*.py text eol=lf

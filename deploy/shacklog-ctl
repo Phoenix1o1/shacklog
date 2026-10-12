@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+# =====================================================================================
+#  shacklog-ctl — manage the ShackLog hub inside its container (run as root).
+#
+#    shacklog-ctl status            service, version, address, data size
+#    shacklog-ctl start|stop|restart
+#    shacklog-ctl logs [-f]         recent log (follow with -f)
+#    shacklog-ctl update            git pull + reinstall + restart (rolls back if it fails)
+#    shacklog-ctl backup            database backup now (+ archive of the whole data folder)
+#    shacklog-ctl setup-code        the one-time code for the first password
+#    shacklog-ctl password          set the web password
+#    shacklog-ctl cli ARGS…         any ShackLog command as the service user (e.g. "cli info")
+#    shacklog-ctl uninstall         remove ShackLog (asks whether to keep the data)
+#    shacklog-ctl handle-request    used by systemd for buttons in Settings › Program
+#
+#  Installed by deploy/install.sh as a link to /opt/shacklog/deploy/shacklog-ctl, so
+#  `update` also updates this tool.
+# =====================================================================================
+set -Eeuo pipefail
+
+APP_DIR=/opt/shacklog
+ENV_FILE=/etc/shacklog/shacklog.env
+CRED_FILE=/etc/shacklog/git-credentials
+SERVICE=shacklog
+PY="$APP_DIR/.venv/bin/python"
+
+# shellcheck disable=SC1090
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
+DATA="${SHACKLOG_DATA:-/var/lib/shacklog}"
+PORT="${SHACKLOG_PORT:-8573}"
+CONTROL="$DATA/control"
+
+if [ -t 1 ]; then
+  BL=$'\033[36m'; GN=$'\033[1;92m'; RD=$'\033[01;31m'; YW=$'\033[33m'; CL=$'\033[m'; BLD=$'\033[1m'
+else
+  BL=""; GN=""; RD=""; YW=""; CL=""; BLD=""
+fi
+ok()   { echo -e " ${GN}✓${CL} $*"; }
+info() { echo -e " ${BL}…${CL} $*"; }
+warn() { echo -e " ${YW}!${CL} $*"; }
+die()  { echo -e " ${RD}✗${CL} $*" >&2; exit 1; }
+
+need_root() { [ "$(id -u)" -eq 0 ] || die "Run as root (sudo shacklog-ctl $*)."; }
+
+as_app() {  # run a ShackLog CLI command as the service user, with the right data folder
+  runuser -u shacklog -- env SHACKLOG_DATA="$DATA" "$PY" -m shacklog "$@"
+}
+
+git_app() {
+  if [ -f "$CRED_FILE" ]; then
+    git -C "$APP_DIR" -c credential.helper="store --file=$CRED_FILE" "$@"
+  else
+    git -C "$APP_DIR" "$@"
+  fi
+}
+
+healthy() {
+  local _
+  for _ in $(seq 1 "${1:-30}"); do
+    if curl -fsS --max-time 2 "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+ip_address() { hostname -I 2>/dev/null | awk '{print $1}'; }
+
+install_units() {
+  local changed=0 f
+  for f in shacklog.service shacklog-control.path shacklog-control.service; do
+    if ! cmp -s "$APP_DIR/deploy/systemd/$f" "/etc/systemd/system/$f"; then
+      install -m 0644 "$APP_DIR/deploy/systemd/$f" "/etc/systemd/system/$f"
+      changed=1
+    fi
+  done
+  if [ "$changed" = 1 ]; then systemctl daemon-reload; fi
+  ln -sf "$APP_DIR/deploy/shacklog-ctl" /usr/local/bin/shacklog-ctl
+  chmod 0755 "$APP_DIR/deploy/shacklog-ctl"
+}
+
+cmd_status() {
+  local state version commit size
+  state=$(systemctl is-active "$SERVICE" 2>/dev/null || true)
+  version=$("$PY" -c 'import shacklog; print(shacklog.__version__)' 2>/dev/null || echo "?")
+  commit=$(git_app log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "?")
+  size=$(du -sh "$DATA" 2>/dev/null | awk '{print $1}')
+  echo -e "${BLD}ShackLog hub${CL}"
+  printf '  %-12s %s\n' "Service" "$state" "Version" "$version ($commit)" \
+    "Address" "http://$(ip_address):$PORT/" "Data" "$DATA ($size)"
+  if [ "$state" = active ]; then
+    if healthy 3; then ok "Answering on port $PORT"; else warn "Running but not answering yet"; fi
+  fi
+}
+
+cmd_logs() {
+  if [ "${1:-}" = "-f" ]; then journalctl -u "$SERVICE" -f -n 50; else journalctl -u "$SERVICE" -n 80 --no-pager; fi
+}
+
+cmd_setup_code() {
+  local line
+  line=$(journalctl -u "$SERVICE" --no-pager -n 400 2>/dev/null | grep -o 'setup code [0-9-]*' | tail -1 || true)
+  if [ -n "$line" ]; then echo "${line#setup code }"; else
+    warn "No setup code in the log: a password is already set, or restart to print a new code."
+  fi
+}
+
+cmd_backup() {
+  as_app backup
+  mkdir -p "$DATA/exports"
+  local out
+  out="$DATA/exports/shacklog-data-$(date +%Y%m%d-%H%M).tar.gz"
+  info "Archiving the whole data folder (database copy + library files)…"
+  tar --exclude="./exports" --exclude="./tmp" --exclude="./shacklog.sqlite3" \
+      --exclude="./shacklog.sqlite3-wal" --exclude="./shacklog.sqlite3-shm" \
+      -czf "$out" -C "$DATA" .
+  chown shacklog:shacklog "$out"
+  ok "Archive: $out (restore it into a new container with shacklog-lxc.sh)"
+}
+
+cmd_update() {
+  need_root update
+  local old new
+  cd "$APP_DIR"
+  old=$(git_app rev-parse HEAD)
+  info "Fetching from GitHub…"
+  git_app fetch --quiet origin || die "Couldn't reach GitHub (token expired? see /etc/shacklog/git-credentials)."
+  git_app merge --ff-only --quiet '@{u}' || die "Local changes in $APP_DIR block the update (git status)."
+  new=$(git_app rev-parse HEAD)
+  if [ "$old" = "$new" ]; then
+    ok "Already up to date ($(git_app rev-parse --short HEAD))."
+    [ "${1:-}" = "--force" ] || return 0
+  else
+    git_app --no-pager log --oneline "$old..$new" | sed 's/^/   /'
+  fi
+  info "Backing up the database first…"
+  as_app backup >/dev/null || warn "Backup failed (continuing)."
+  info "Installing Python packages…"
+  "$APP_DIR/.venv/bin/pip" install --quiet --upgrade pip
+  "$APP_DIR/.venv/bin/pip" install --quiet -r requirements.txt
+  install_units
+  info "Restarting…"
+  systemctl restart "$SERVICE"
+  if healthy 40; then
+    ok "Updated to $(git_app rev-parse --short HEAD) and running."
+  else
+    warn "The new version didn't start. Rolling back to ${old:0:7}…"
+    git_app reset --hard --quiet "$old"
+    "$APP_DIR/.venv/bin/pip" install --quiet -r requirements.txt
+    install_units
+    systemctl restart "$SERVICE"
+    if healthy 40; then warn "Rolled back; the previous version is running. See: shacklog-ctl logs"
+    else die "Still not running after the rollback. See: shacklog-ctl logs"; fi
+    return 1
+  fi
+}
+
+cmd_handle_request() {
+  # Called by shacklog-control.service when the web UI writes $CONTROL/request.
+  local req
+  [ -f "$CONTROL/request" ] || exit 0
+  req=$(tr -dc 'a-z' < "$CONTROL/request" | head -c 20)
+  rm -f "$CONTROL/request"
+  {
+    echo "== $(date -u '+%Y-%m-%d %H:%M:%S') UTC: $req"
+    case "$req" in
+      update)  cmd_update ;;
+      restart) systemctl restart "$SERVICE" && echo "Restarted." ;;
+      stop)    systemctl stop "$SERVICE" && echo "Stopped. Start again with: shacklog-ctl start" ;;
+      *)       echo "Ignored unknown request '$req'." ;;
+    esac
+  } > "$CONTROL/last.log" 2>&1 || true
+  chown shacklog:shacklog "$CONTROL/last.log" 2>/dev/null || true
+}
+
+usage() { sed -n '3,17p' "$0" | sed 's/^#  \{0,1\}//'; }
+
+case "${1:-status}" in
+  status)          cmd_status ;;
+  start|stop|restart) need_root "$1"; systemctl "$1" "$SERVICE"; [ "$1" = stop ] || { healthy 30 && ok "Running." || warn "Not answering yet: shacklog-ctl logs"; } ;;
+  logs)            cmd_logs "${2:-}" ;;
+  update)          cmd_update "${2:-}" ;;
+  backup)          need_root backup; cmd_backup ;;
+  setup-code)      cmd_setup_code ;;
+  password)        need_root password; as_app set-password ;;
+  cli)             shift; as_app "$@" ;;
+  uninstall)       need_root uninstall; exec bash "$APP_DIR/deploy/uninstall.sh" ;;
+  handle-request)  cmd_handle_request ;;
+  -h|--help|help)  usage ;;
+  *)               usage; exit 2 ;;
+esac

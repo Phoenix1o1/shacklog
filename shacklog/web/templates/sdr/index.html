@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head %}
+{% block title %}SDR monitor{% endblock %}
+{% block page_class %}page-wide{% endblock %}
+{% block content %}
+{% call page_head("SDR monitor", "OFFgrid-SDR on this computer's RTL-SDR stick, with a quick listening log beside it.") %}
+  {% if path %}<a class="btn" href="{{ url_for('sdr.app_page') }}" target="_blank" rel="noopener">Open OFFgrid-SDR in its own tab</a>{% endif %}
+  <a class="btn btn-quiet" href="{{ url_for('swl.index', tags='sdr-monitor') }}">Everything logged from here</a>
+{% endcall %}
+
+{% if not can_run %}
+<div class="panel prose">
+  <h2>Run this on the computer with the stick</h2>
+  <p>OFFgrid-SDR talks to the RTL-SDR over WebUSB, which the browser only allows on the
+     computer the stick is plugged into, from a local address. Open {{ app_name }} on that PC
+     (desktop mode) and come back to this page there. Logged entries sync here as usual.</p>
+</div>
+{% elif not path %}
+<div class="panel prose">
+  <h2>OFFgrid-SDR not found</h2>
+  <p>Download it from <a href="https://github.com/diddy-boy/OFFgrid-SDR" rel="noopener" target="_blank">github.com/diddy-boy/OFFgrid-SDR</a>
+     (Code › Download ZIP) and unzip it next to the {{ app_name }} folder, so the folders are
+     <code>…\Radio\ShackLog</code> and <code>…\Radio\OFFgrid-SDR-main</code>. Or point to its
+     <code>index.html</code> in <a href="{{ url_for('settings.program') }}#sdr">Settings › Program</a>.</p>
+  <p>Windows needs the WinUSB driver for the stick once (Zadig), and SDR# must be closed:
+     only one program can use the stick at a time.</p>
+</div>
+{% endif %}
+
+<div class="sdr-layout">
+  {% if path %}
+  <div class="sdr-frame-wrap">
+    {# allow="usb": WebUSB inside the frame; same origin, so the browser's USB chooser works. #}
+    <iframe class="sdr-frame" src="{{ url_for('sdr.app_page') }}{{ '?demo' if demo else '' }}" title="OFFgrid-SDR receiver"
+            allow="usb; autoplay; screen-wake-lock; clipboard-write"></iframe>
+    <p class="small muted">Power on, pick the stick in the browser's USB list. No stick at hand?
+      <a href="{{ url_for('sdr.index', demo=1) }}">Demo mode</a>.</p>
+  </div>
+  {% endif %}
+
+  <aside class="sdr-side">
+    <section class="panel">
+      <h2>I hear something</h2>
+      <form method="post" action="{{ url_for('sdr.heard') }}" class="grid"
+            hx-post="{{ url_for('sdr.heard') }}" hx-target="#sdr-recent" hx-swap="outerHTML"
+            hx-on::after-request="if (event.detail.successful) { this.querySelector('[name=heard]').value=''; this.querySelector('[name=notes]').value=''; }">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="field w-half"><label for="sdr-freq">MHz</label>
+          <input id="sdr-freq" name="freq_mhz" inputmode="decimal" placeholder="145.6125" required class="t-freq" autocomplete="off"></div>
+        <div class="field w-half"><label for="sdr-mode">Mode</label>
+          <select id="sdr-mode" name="mode">{% for m in ['FM', 'AM', 'USB', 'LSB', 'CW', 'DMR', 'C4FM', 'DSTAR'] %}<option>{{ m }}</option>{% endfor %}</select></div>
+        <div class="field w-half"><label for="sdr-heard">Heard (call, flight…)</label>
+          <input id="sdr-heard" name="heard" autocomplete="off" spellcheck="false"></div>
+        <div class="field w-half"><label for="sdr-signal">Signal</label>
+          <input id="sdr-signal" name="signal" placeholder="S7, 5/9…" autocomplete="off"></div>
+        <div class="field w-full"><label for="sdr-cat">Category</label>
+          <select id="sdr-cat" name="category">{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+          <p class="field-help">A repeater's output frequency is recognised and linked by itself.</p></div>
+        <div class="field w-full"><label for="sdr-notes">Notes</label>
+          <input id="sdr-notes" name="notes" autocomplete="off"></div>
+        <div class="form-actions"><button class="btn btn-primary">Log now (UTC)</button></div>
+      </form>
+      {% include "sdr/_recent.html" %}
+    </section>
+
+    <section class="panel">
+      <h2>Channels to scan</h2>
+      <p class="small">Load these into OFFgrid-SDR, set the squelch, press <b>Scan</b>: it stops on every
+         channel with activity. Importing replaces OFFgrid-SDR's memories and settings.</p>
+      <form method="get" action="{{ url_for('sdr.index') }}" class="picker-form">
+        <select name="config" aria-label="Source of the channels" onchange="this.form.submit()">
+          <option value="">Repeaters nearest to {{ station.name if station else 'home' }}</option>
+          {% for c in configs %}<option value="{{ c.id }}" {% if request.args.get('config') == c.id %}selected{% endif %}>{{ c.title }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn btn-small">Show</button></noscript>
+      </form>
+      <p><a class="btn" href="{{ url_for('sdr.memories', **request.args) }}">Download OFFgrid-SDR memories ({{ listing|length }})</a></p>
+      <p class="small muted">In OFFgrid-SDR: Receiver settings › Import settings › pick the file.
+        {% if not request.args.get('config') %}Narrow the repeaters with the filters on the <a href="{{ url_for('repeaters.index') }}">Repeaters</a> page; this list follows them.{% endif %}</p>
+      {% if listing %}
+      <table class="ledger compact">
+        <thead><tr><th class="num">Mem</th><th class="num">MHz</th><th>Channel</th><th>Mode</th></tr></thead>
+        <tbody>{% for m in listing %}
+          <tr><td class="num">{{ m.slot }}</td><td class="num" data-label="MHz">{{ m.mhz|freq }}</td>
+              <td class="primary" data-label="Channel">{{ m.label }}</td><td data-label="Mode">{{ m.mode }}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+      {% else %}
+      <p class="muted">No channels from {{ source }} yet.</p>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

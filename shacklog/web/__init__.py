@@ -35,6 +35,8 @@ VIEW_MODULES = [
     "equipment",
     "contacts",
     "files",
+    "kb",
+    "sdr",
     "links",
     "search",
     "map",

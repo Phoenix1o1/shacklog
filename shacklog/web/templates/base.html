@@ -23,7 +23,7 @@
       {% set nav = [
         ('Logs', [('qsos.index', 'QSOs'), ('swl.index', 'Listening log'), ('journal.index', 'Journal')]),
         ('Station', [('repeaters.index', 'Repeaters'), ('radio.index', 'Radio configs'), ('stations.index', 'Stations'), ('equipment.index', 'Equipment'), ('contacts.index', 'Contacts')]),
-        ('Browse', [('files.index', 'Library'), ('map.index', 'Map'), ('stats.index', 'Statistics')]),
+        ('Browse', [('kb.index', 'Knowledge base'), ('files.index', 'Library'), ('sdr.index', 'SDR monitor'), ('map.index', 'Map'), ('stats.index', 'Statistics')]),
       ] %}
       {% for group, items in nav %}
       <div class="menu-group">
@@ -36,6 +36,7 @@
       <div class="menu-group">
         <span class="menu-group-title">This instance</span>
         <a href="{{ url_for('settings.index') }}">Settings</a>
+        <a href="{{ url_for('settings.program') }}">Program &amp; updates</a>
         <a href="{{ url_for('settings.sync') }}">Sync</a>
         <a href="{{ url_for('settings.data') }}">Import, export &amp; backups</a>
         {% if login_enabled %}

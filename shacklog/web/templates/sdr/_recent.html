@@ -1,0 +1,15 @@
+{# Today's listening entries; replaced by htmx after each quick log. #}
+<div id="sdr-recent" aria-live="polite">
+  {% if message %}<p class="flash {{ 'flash-error' if error else 'flash-ok' }}">{{ message }}</p>{% endif %}
+  {% if recent %}
+  <h3>Today</h3>
+  <ul class="linked-list">
+    {% for e in recent %}
+    <li><span class="linked-kind">{{ e.time_utc|hm }}Z</span>
+      <a href="{{ url_for('swl.view', record_id=e.id) }}">{{ e.freq_mhz|freq }} MHz</a>
+      <span>{{ e.heard or e.category }}</span>
+      {% if e.signal %}<span class="muted">{{ e.signal }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

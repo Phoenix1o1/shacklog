@@ -1,0 +1,6 @@
+[Unit]
+Description=ShackLog control request handler
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/shacklog-ctl handle-request

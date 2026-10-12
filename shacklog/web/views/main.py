@@ -45,7 +45,14 @@ def dashboard():
         recent_journal=h.live(JournalEntry).order_by(JournalEntry.time_utc.desc()).limit(5).all(),
         stations=h.live(Station).order_by(Station.kind, Station.name).all(),
         default_station=h.default_station(s),
+        pinned=_pinned(),
     )
+
+
+def _pinned():
+    from shacklog.web.views.kb import pinned_for_dashboard
+
+    return pinned_for_dashboard()
 
 
 # ---------------------------------------------------------------------------

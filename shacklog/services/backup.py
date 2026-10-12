@@ -71,7 +71,23 @@ def create_backup(db, backups_dir: Path, reason: str = "manual") -> Path:
     while target.exists():  # two backups in the same second
         target = backups_dir / f"{PREFIX}-{stamp}-{reason}-{n}{SUFFIX}"
         n += 1
-    return copy_database(db, target)
+    made = copy_database(db, target)
+    _mirror(db, made)
+    return made
+
+
+def _mirror(db, made: Path) -> None:
+    """Also copy the backup to the folder chosen in Settings › Program, if any."""
+    from shacklog.db import get_setting
+    from shacklog.services.system import mirror_backup
+
+    try:
+        with db.transaction() as s:
+            mirror_dir = get_setting(s, "backup_mirror_dir")
+            keep = int(get_setting(s, "backup_mirror_keep", 30) or 30)
+    except Exception:
+        return
+    mirror_backup(made, mirror_dir, keep)
 
 
 def _parse_name(name: str) -> tuple[datetime, str] | None:

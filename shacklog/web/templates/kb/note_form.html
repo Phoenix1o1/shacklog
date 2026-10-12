@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit note' if f else 'Write a note' }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit note' if f else 'Write a note' }}</h1></div>
+<form method="post" class="record-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset class="form-section">
+    <div class="grid">
+      <div class="field w-full"><label for="title">Title</label>
+        <input id="title" name="title" value="{{ title or '' }}" required></div>
+      <div class="field w-full"><label for="body">Text (Markdown: # headings, **bold**, - lists, | tables |)</label>
+        <textarea id="body" name="body" rows="22" class="kb-editor" spellcheck="true">{{ body }}</textarea></div>
+      {% if not f %}
+      <div class="field w-full"><label for="tags">Tags</label>
+        <input id="tags" name="tags" placeholder="pinned, repeaters, how-to"></div>
+      {% endif %}
+    </div>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn-primary">Save note</button>
+    <a class="btn btn-quiet" href="{{ url_for('kb.view', record_id=f.id) if f else url_for('kb.index') }}">Cancel</a></div>
+</form>
+{% endblock %}

@@ -140,19 +140,56 @@ def start_sync_worker(app):
     return SyncWorker(app).start()
 
 
-def make_shutdown(worker, db: Database):
-    """What "Quit ShackLog" calls in desktop mode: stop sync, close the DB, exit."""
+def make_cleanup(worker, db: Database):
+    """Stop sync, fold the WAL journal into the database file, close it. Runs once."""
+    done = threading.Event()
 
-    def shutdown() -> None:
-        log.info("Shutting down on request")
+    def cleanup() -> None:
+        if done.is_set():
+            return
+        done.set()
+        from shacklog.services import system
+
         try:
             if worker is not None:
                 worker.stop(timeout=5)
-            db.dispose()
         finally:
-            os._exit(0)  # waitress has no clean stop from another thread
+            system.checkpoint(db)
+            db.dispose()
+
+    return cleanup
+
+
+def make_shutdown(cleanup, exit_code: int = 0):
+    """What "Quit ShackLog" (and "Restart" on the hub) call: clean up, then exit."""
+
+    def shutdown(code: int = exit_code) -> None:
+        log.info("Shutting down on request")
+        try:
+            cleanup()
+        finally:
+            os._exit(code)  # waitress has no clean stop from another thread
 
     return shutdown
+
+
+def prepare_run(db: Database, worker):
+    """Checkpoint now and every few minutes, and on every way the process can end."""
+    from shacklog.services import system
+
+    system.checkpoint(db)
+    system.start_checkpoint_timer(db)
+    cleanup = make_cleanup(worker, db)
+    system.on_exit(cleanup)
+    return cleanup
+
+
+def banner(lines: list[str]) -> None:
+    width = max(len(line) for line in lines) + 4
+    print("\n  " + "-" * width)
+    for line in lines:
+        print(f"    {line}")
+    print("  " + "-" * width + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -178,11 +215,20 @@ def cmd_desktop(args) -> int:
 
     app = create_app(db, paths, mode="desktop")
     worker = None if args.no_sync else start_sync_worker(app)
-    app.config["SHUTDOWN"] = make_shutdown(worker, db)
+    cleanup = prepare_run(db, worker)
+    app.config["SHUTDOWN"] = make_shutdown(cleanup)
+    app.config["SYNC_WORKER"] = worker
 
-    print(f"\n  {APP_NAME} {__version__} is running at {url}")
-    print(f"  Data folder: {paths.data_dir}")
-    print("  Stop it with Settings › Quit, or close this window.\n")
+    banner([
+        f"{APP_NAME} {__version__} is running at {url}",
+        "",
+        f"Your data (database, library files, backups):",
+        f"  {paths.data_dir}",
+        f"  database file: {paths.database.name}",
+        "",
+        "Settings › Program shows this folder and opens it.",
+        "Stop with Settings › Quit, or close this window.",
+    ])
     if not args.no_browser:
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()
     try:
@@ -190,9 +236,7 @@ def cmd_desktop(args) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        if worker is not None:
-            worker.stop(timeout=5)
-        db.dispose()
+        cleanup()
     return 0
 
 
@@ -218,6 +262,11 @@ def cmd_serve(args) -> int:
 
     app = create_app(db, paths, mode="server", setup_code=setup_code)
     worker = None if args.no_sync else start_sync_worker(app)
+    cleanup = prepare_run(db, worker)
+    # "Restart" in Settings › Program exits with status 75; systemd (Restart=always)
+    # starts the service again. Stop/update go through the control request file.
+    app.config["SHUTDOWN"] = make_shutdown(cleanup, exit_code=75)
+    app.config["SYNC_WORKER"] = worker
 
     shown_host = args.host if args.host not in ("0.0.0.0", "::") else socket.gethostname()
     print(f"\n  {APP_NAME} {__version__} server on http://{shown_host}:{args.port}/")
@@ -232,9 +281,7 @@ def cmd_serve(args) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        if worker is not None:
-            worker.stop(timeout=5)
-        db.dispose()
+        cleanup()
     return 0
 
 
@@ -338,6 +385,17 @@ def cmd_set_password(args) -> int:
     return 0
 
 
+def cmd_where(args) -> int:
+    """Print the data folder; ``--open`` also shows it in Explorer/Finder."""
+    from shacklog.services import system
+
+    paths = Paths(resolve_data_dir(getattr(args, "data_dir", None)))
+    print(paths.data_dir)
+    if getattr(args, "open", False):
+        system.open_folder(paths.data_dir)
+    return 0
+
+
 def cmd_info(args) -> int:
     from shacklog import migrations
     from shacklog.models import SYNC_ORDER
@@ -396,6 +454,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("set-password", help="set the web login password "
                    "(or use SHACKLOG_PASSWORD)")
     sub.add_parser("info", help="paths, identity and record counts")
+    where = sub.add_parser("where", help="print the data folder (--open shows it)")
+    where.add_argument("--open", action="store_true")
 
     # Subcommands accept the global options too (``shacklog serve --data-dir X``).
     # default=SUPPRESS so a subcommand doesn't overwrite a value given before it.
@@ -411,7 +471,7 @@ def build_parser() -> argparse.ArgumentParser:
 COMMANDS = {
     None: cmd_desktop, "run": cmd_desktop, "serve": cmd_serve, "sync": cmd_sync,
     "import": cmd_import, "export-bundle": cmd_export_bundle, "backup": cmd_backup,
-    "set-password": cmd_set_password, "info": cmd_info,
+    "set-password": cmd_set_password, "info": cmd_info, "where": cmd_where,
 }
 
 

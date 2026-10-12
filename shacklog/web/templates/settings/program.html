@@ -1,0 +1,125 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, facts %}
+{% from "_forms.html" import csrf %}
+{% block title %}Program & updates{% endblock %}
+{% block settings_body %}
+{% call page_head("Program & updates", "Where your data lives, keeping " ~ app_name ~ " up to date, and second copies of backups.") %}{% endcall %}
+
+<div class="settings-grid">
+  <div>
+    <section class="panel" id="data-folder">
+      <h2>Your data</h2>
+      <p>Everything {{ app_name }} stores is in one folder: the database, the library files
+         and the automatic backups. Copy that folder and you have copied everything.</p>
+      {{ facts([('Data folder', data_dir), ('Database file', database)]) }}
+      <p class="small muted">While {{ app_name }} runs, recent changes can sit in
+        <code>shacklog.sqlite3-wal</code> next to the database. They are folded into the main file
+        every few minutes and when {{ app_name }} stops. To copy the database by hand, stop
+        {{ app_name }} first, or use <a href="{{ url_for('settings.data') }}">Back up now</a>.</p>
+      {% if desktop %}
+      <form method="post" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="action" value="open_data">
+        <button class="btn">Open the data folder</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="panel" id="mirror">
+      <h2>Second copy of backups</h2>
+      <p>{{ app_name }} backs up the database once a day and before every import. It can also
+         copy each backup to another folder: a OneDrive folder on a PC, or a NAS share mounted
+         on the server. Only finished backup files go there, never the live database, so a
+         syncing cloud folder can't damage it.</p>
+      <form method="post" class="grid">
+        {{ csrf() }}<input type="hidden" name="action" value="mirror">
+        <div class="field w-full"><label for="backup_mirror_dir">Folder</label>
+          <input id="backup_mirror_dir" name="backup_mirror_dir" value="{{ mirror_dir }}" spellcheck="false"
+                 placeholder="{{ 'C:\\Users\\…\\OneDrive\\Desktop\\Radio\\ShackLog\\backups' if os_name == 'nt' else '/mnt/nas/shacklog-backups' }}">
+          <p class="field-help">Leave empty to keep backups in the data folder only.</p></div>
+        <div class="field w-quarter"><label for="backup_mirror_keep">Copies to keep</label>
+          <input id="backup_mirror_keep" name="backup_mirror_keep" value="{{ mirror_keep }}" inputmode="numeric"></div>
+        <div class="form-actions"><button class="btn btn-primary">Save and back up now</button></div>
+      </form>
+    </section>
+
+    {% if desktop %}
+    <section class="panel" id="sdr">
+      <h2>OFFgrid-SDR</h2>
+      <p>The <a href="{{ url_for('sdr.index') }}">SDR monitor</a> opens OFFgrid-SDR next to a quick
+         listening log.
+        {% if sdr_found %}Found: <code>{{ sdr_found }}</code>{% else %}<b>Not found yet.</b>{% endif %}</p>
+      <form method="post" class="grid">
+        {{ csrf() }}<input type="hidden" name="action" value="sdr_path">
+        <div class="field w-full"><label for="offgrid_sdr_path">Location of OFFgrid-SDR's index.html</label>
+          <input id="offgrid_sdr_path" name="offgrid_sdr_path" value="{{ sdr_path }}" spellcheck="false"
+                 placeholder="Empty: look in OFFgrid-SDR-main next to the ShackLog folder">
+        </div>
+        <div class="form-actions"><button class="btn">Save location</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside>
+    <section class="panel" id="update">
+      <h2>Updates</h2>
+      {% if status.path and status.git %}
+        {{ facts([
+          ('Version', app_name ~ ' ' ~ version),
+          ('Git commit', status.commit ~ (' · ' ~ status.commit_date if status.commit_date else '')),
+          ('Branch', status.branch),
+          ('Folder', status.path|string),
+        ]) }}
+        {% if status.dirty %}<p class="flash flash-warn">Files in this copy were changed by hand. The update keeps them if git can; otherwise it stops and tells you.</p>{% endif %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="check_update">
+          <button class="btn">Check for updates</button></form>
+        {% if desktop %}
+        <form method="post" class="inline-form" onsubmit="return confirm('Update now? {{ app_name }} closes, downloads the latest version from GitHub, rebuilds itself and starts again.');">
+          {{ csrf() }}<input type="hidden" name="action" value="update">
+          <button class="btn btn-primary">Update now</button></form>
+        <p class="small muted">Runs <code>packaging\update_windows.bat</code>: git pull, rebuild, restart. Your data folder isn't touched.</p>
+        {% endif %}
+      {% elif status.path and not status.git %}
+        <p>This copy comes from GitHub, but <b>git isn't installed</b> on this computer.
+           Install it (<code>winget install Git.Git</code> on Windows), then come back here.</p>
+      {% else %}
+        <p>This copy wasn't installed from GitHub, so it can't update itself. Download the
+           latest executable from GitHub, or install from a git clone (see README).</p>
+      {% endif %}
+
+      {% if not desktop %}
+      <h3>Server</h3>
+      {% if control %}
+      <p class="small">These ask Proxmox (the <code>shacklog-ctl</code> helper) to act. Same as
+         running <code>shacklog-ctl update|restart|stop</code> in the container.</p>
+      <div class="quick-actions">
+        <form method="post" onsubmit="return confirm('Pull the latest version from GitHub, reinstall and restart?');">
+          {{ csrf() }}<input type="hidden" name="action" value="update"><button class="btn btn-primary">Update and restart</button></form>
+        <form method="post">{{ csrf() }}<input type="hidden" name="action" value="restart"><button class="btn">Restart</button></form>
+        <form method="post" onsubmit="return confirm('Stop the server? It stays off until you run shacklog-ctl start on Proxmox.');">
+          {{ csrf() }}<input type="hidden" name="action" value="stop"><button class="btn btn-danger">Stop server</button></form>
+      </div>
+      {% if control_log %}
+      <details><summary>Last server action</summary><pre class="code small" style="white-space: pre-wrap">{{ control_log }}</pre></details>
+      {% endif %}
+      {% else %}
+      <p class="small">Server controls need the install from <code>deploy/</code> (it adds the
+         <code>shacklog-ctl</code> helper). Restart still works:</p>
+      <form method="post">{{ csrf() }}<input type="hidden" name="action" value="restart"><button class="btn">Restart</button></form>
+      {% endif %}
+      {% endif %}
+    </section>
+
+    {% if can_quit %}
+    <section class="panel">
+      <h2>Stop {{ app_name }}</h2>
+      <p>Closing the browser tab leaves {{ app_name }} running in the background.</p>
+      <form method="post" action="{{ url_for('settings.index') }}">
+        {{ csrf() }}<input type="hidden" name="action" value="quit">
+        <button class="btn btn-danger">Quit {{ app_name }}</button>
+      </form>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

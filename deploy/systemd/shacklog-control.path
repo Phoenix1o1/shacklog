@@ -1,0 +1,11 @@
+# Watches for update/restart/stop requests written by the web UI (Settings › Program).
+# The web service runs unprivileged; this hands the request to root's shacklog-ctl.
+[Unit]
+Description=ShackLog control requests from the web UI
+
+[Path]
+PathExists=/var/lib/shacklog/control/request
+Unit=shacklog-control.service
+
+[Install]
+WantedBy=multi-user.target
