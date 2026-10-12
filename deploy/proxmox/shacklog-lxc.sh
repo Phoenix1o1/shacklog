@@ -223,7 +223,12 @@ summary() {
 pick_template() {
   msg_info "Updating the template list"
   pveam update >/dev/null 2>&1 || true
-  TEMPLATE=$(pveam available --section system 2>/dev/null | awk '{print $2}' | grep -E '^debian-13-standard' | sort -V | tail -1)
+  # Debian 13 only on Proxmox VE 9+: PVE 8 lists the Debian 13 template but older
+  # pve-container versions refuse to start it ("unsupported debian version").
+  local pve_major debian=12
+  pve_major=$(pveversion | grep -oE 'pve-manager/[0-9]+' | cut -d/ -f2)
+  [ "${pve_major:-8}" -ge 9 ] && debian=13
+  TEMPLATE=$(pveam available --section system 2>/dev/null | awk '{print $2}' | grep -E "^debian-${debian}-standard" | sort -V | tail -1)
   [ -n "$TEMPLATE" ] || TEMPLATE=$(pveam available --section system | awk '{print $2}' | grep -E '^debian-12-standard' | sort -V | tail -1)
   [ -n "$TEMPLATE" ] || { msg_error "No Debian template available (check the host's internet)."; exit 1; }
   TEMPLATE_STORAGE=$(pvesm status -content vztmpl | awk 'NR>1 && $3=="active"{print $1; exit}')
@@ -250,7 +255,12 @@ create_container() {
   CT_CREATED=1
   msg_ok "Created container $CTID ($HN)"
   msg_info "Starting the container"
-  pct start "$CTID"
+  if ! pct start "$CTID" 2>/tmp/shacklog-ct-start.log; then
+    msg_error "Container $CTID didn't start. The reason, from pct start --debug:"
+    pct start "$CTID" --debug 2>&1 | grep -iE 'error|unsupported|fail|denied|not found' | grep -v '^$' | head -15 | sed 's/^/   /'
+    echo -e "   Full log: ${BL}pct start $CTID --debug${CL}. Remove the container: ${BL}pct destroy $CTID${CL}"
+    exit 1
+  fi
   local i
   for i in $(seq 1 60); do
     pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1 && break
