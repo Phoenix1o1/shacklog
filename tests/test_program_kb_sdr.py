@@ -127,7 +127,10 @@ def test_build_memories_format():
     assert [x["label"] for x in listing] == ["R1", "Malpensa TWR", "Radio"]
 
 
-def test_sdr_page_memories_and_quick_log(client, s, tmp_path):
+def test_sdr_page_memories_and_quick_log(client, s, tmp_path, monkeypatch):
+    # Pretend OFFgrid-SDR isn't installed, even on a PC where it sits next to ShackLog.
+    from shacklog.web.views import sdr
+    monkeypatch.setattr(sdr, "_candidates", lambda: [])
     s.add(Repeater(name="Campo dei Fiori", ident="R1", kind="FM", output_mhz=145.6125,
                    input_mhz=145.0125, latitude=45.87, longitude=8.77))
     s.commit()

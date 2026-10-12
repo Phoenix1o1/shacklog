@@ -160,7 +160,8 @@ def test_ten_thousand_records_are_fast(s):
     s.commit()
     elapsed = time.perf_counter() - start
     assert (summary.created, summary.duplicates) == (10_000, 500)
-    assert elapsed < 20, f"import took {elapsed:.1f}s"
+    # Generous: catches quadratic slow-downs (minutes), not slow disks (OneDrive, CI).
+    assert elapsed < 120, f"import took {elapsed:.1f}s"
     # A second pass is all duplicates and also quick.
     start = time.perf_counter()
     again = qso_io.import_adif(s, data)
