@@ -307,6 +307,10 @@ def data():
             result = _import_upload()
             if result is not None:
                 return result
+        elif action == "import_path" and current_app.config["MODE"] == "desktop":
+            result = _import_local_path(request.form.get("path", ""))
+            if result is not None:
+                return result
         else:
             abort(400, description="Unknown action.")
         return redirect(url_for(".data"))
@@ -320,6 +324,7 @@ def data():
         history.append((entry, summary if isinstance(summary, dict) else {}))
     return render_template(
         "settings/data.html", backups=backup.list_backups(_paths().backups), history=history,
+        desktop=current_app.config["MODE"] == "desktop", local_bundles=_local_bundles(),
         backups_dir=str(_paths().backups),
         keep_daily=h.setting("backup_keep_daily"), keep_other=h.setting("backup_keep_import"),
     )
@@ -358,6 +363,39 @@ def _import_upload():
     finally:
         tmp.unlink(missing_ok=True)
     return render_template("settings/import_done.html", summary=summary, filename=upload.filename)
+
+
+def _local_bundles() -> list[str]:
+    """Bundles waiting next to the program (e.g. ShackLog-import-*.zip in the working copy),
+    offered as one-click imports in desktop mode."""
+    from shacklog.services.system import repo_root
+
+    if current_app.config["MODE"] != "desktop":
+        return []
+    found: list[str] = []
+    for folder in filter(None, [repo_root(), Path.home() / "Downloads"]):
+        try:
+            found += [str(p) for p in sorted(folder.glob("ShackLog-*.zip"))]
+        except OSError:
+            continue
+    return found
+
+
+def _import_local_path(raw: str):
+    """Desktop only: import a file already on this computer, by path. Browsers can't send
+    very large files reliably, and a path avoids copying a big bundle twice."""
+    from shacklog.services import bundle
+
+    path = Path(raw.strip().strip('"')).expanduser()
+    if not raw.strip() or not path.is_file():
+        flash(f"No file at “{raw.strip()}”. Paste the full path of the .zip or .sqlite3.", "error")
+        return None
+    try:
+        summary = bundle.import_upload(_db(), _paths(), path, path.name)
+    except bundle.BundleError as exc:
+        flash(f"Nothing was imported: {exc}", "error")
+        return None
+    return render_template("settings/import_done.html", summary=summary, filename=path.name)
 
 
 @bp.route("/data/backups/<name>")

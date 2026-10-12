@@ -36,6 +36,23 @@
           <input id="file" type="file" name="file" accept=".zip,.sqlite3,.sqlite,.db" required></div>
         <div class="form-actions"><button class="btn btn-primary">Import and merge</button></div>
       </form>
+      {% if desktop %}
+      <h3>Or a file already on this computer</h3>
+      <p class="small muted">Best for big bundles (over a few hundred MB, or when the upload stalls).</p>
+      {% for path in local_bundles %}
+      <form method="post" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="action" value="import_path"><input type="hidden" name="path" value="{{ path }}">
+        <button class="btn">Import {{ path.replace('\\', '/').rsplit('/', 1)[-1] }}</button>
+      </form>
+      {% endfor %}
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="import_path">
+        <div class="field w-full"><label for="import-path">Full path of the file</label>
+          <input id="import-path" name="path" spellcheck="false" placeholder="C:\Users\…\ShackLog-export-….zip" required></div>
+        <div class="form-actions"><button class="btn">Import from this path</button></div>
+      </form>
+      {% endif %}
     </section>
 
     <section class="panel">

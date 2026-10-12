@@ -156,3 +156,21 @@ def test_sdr_serves_configured_offgrid(client, tmp_path):
     r = client.get("/sdr/app")
     assert r.status_code == 200 and b"OFFgrid-SDR" in r.data
     assert 'allow="usb' in client.get("/sdr/").text
+
+
+def test_import_bundle_from_local_path(client, tmp_path, app):
+    from shacklog.services import bundle
+    from tests.conftest import build_app
+
+    other, _db, other_paths = build_app(tmp_path / "other")
+    with other.test_client() as oc:
+        oc.post("/kb/new-note", data={"_csrf": csrf(oc), "title": "From the laptop", "body": "hello"})
+    out = tmp_path / "ShackLog-export-test.zip"
+    bundle.export_bundle(_db, other_paths, out)
+    r = client.post("/settings/data", data={"_csrf": csrf(client), "action": "import_path",
+                                             "path": f'"{out}"'})
+    assert r.status_code == 200
+    assert "From the laptop" in client.get("/kb/").text
+    r = client.post("/settings/data", data={"_csrf": csrf(client), "action": "import_path",
+                                             "path": str(tmp_path / "missing.zip")})
+    assert r.status_code == 302
