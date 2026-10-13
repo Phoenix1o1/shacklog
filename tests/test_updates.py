@@ -146,3 +146,30 @@ def test_update_panel_fits_the_platform(client, tmp_path, monkeypatch):
     page = c.get("/settings/program").text
     assert "docker compose -f deploy/docker/docker-compose.yml up -d --build" in page
     assert "Download the" not in page and "restart: unless-stopped" in page
+
+
+def test_git_errors_are_not_shown_as_values(monkeypatch, client):
+    """The hub's web service can't read root's checkout ("dubious ownership"): the page
+    must say so once, not print the error as the commit and the branch."""
+    message = "fatal: detected dubious ownership in repository at '/opt/shacklog'"
+    monkeypatch.setattr(system, "repo_root", lambda: system.Path("/opt/shacklog"))
+    monkeypatch.setattr(system, "git_executable", lambda: "git")
+    monkeypatch.setattr(system, "_git", lambda repo, *args, **kw: (128, message + "\nTo add an exception…"))
+    status = system.repo_status()
+    assert (status.branch, status.commit, status.commit_date) == ("", "", "")
+    assert status.error == message
+    page = client.get("/settings/program").text
+    assert page.count("dubious ownership") == 1 and "Git can't read this copy" in page
+
+
+def test_git_trusts_the_program_folder(tmp_path, monkeypatch):
+    """Every git call names the repository as a safe directory (hub: root-owned code)."""
+    seen = []
+
+    class Done:
+        returncode, stdout, stderr = 0, "", ""
+
+    monkeypatch.setattr(system, "git_executable", lambda: "git")
+    monkeypatch.setattr(system.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or Done())
+    system._git(tmp_path, "status")
+    assert seen[0][1:3] == ["-c", f"safe.directory={tmp_path.resolve().as_posix()}"]

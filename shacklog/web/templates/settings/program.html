@@ -121,6 +121,8 @@
           ('Branch', status.branch),
           ('Last checked', (u.get('checked_at', '')|replace('T', ' ')|replace('Z', ' UTC')) or 'never'),
         ]) }}
+        {% if status.error and not status.commit %}<p class="flash flash-warn small">Git can't read this copy: {{ status.error }}</p>{% endif %}
+        {% if not desktop and control and not u.get('checked_at') %}<p class="small">Not checked yet on this hub: press <b>Check now</b> below. (The 6-hourly timer is switched on by the next update.)</p>{% endif %}
         {% if status.dirty %}<p class="flash flash-warn">Files in this copy were changed by hand. Automatic updates are skipped until that's sorted out (<code>git status</code>).</p>{% endif %}
         {% if desktop %}
         <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="check_update">

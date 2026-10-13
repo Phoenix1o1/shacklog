@@ -199,8 +199,12 @@ def _git(repo: Path, *args: str, timeout: int = 60) -> tuple[int, str]:
     # Never wait for a login prompt (terminal or Git Credential Manager window): a check
     # at start-up must fail fast instead.
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
+    # On the hub the code (/opt/shacklog) belongs to root while the web service runs as
+    # "shacklog": git then refuses the repository ("detected dubious ownership"). Trust
+    # this one folder for our own commands; root's shacklog-ctl does the actual updates.
+    trust = ["-c", f"safe.directory={Path(repo).resolve().as_posix()}"]
     try:
-        done = subprocess.run([git, "-C", str(repo), *args], capture_output=True, text=True,
+        done = subprocess.run([git, *trust, "-C", str(repo), *args], capture_output=True, text=True,
                               timeout=timeout, creationflags=flags, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
@@ -228,9 +232,19 @@ def repo_status(check_remote: bool = False, fetch_timeout: int = 60) -> RepoStat
     status = RepoStatus(path=path, git=git_executable() is not None)
     if path is None or not status.git:
         return status
-    _, status.branch = _git(path, "rev-parse", "--abbrev-ref", "HEAD")
-    _, status.commit = _git(path, "rev-parse", "--short", "HEAD")
-    _, status.commit_date = _git(path, "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M")
+    def value(*args: str) -> str:
+        """Output of a git command, or "" if it failed: an error message is never shown
+        as if it were the branch or the commit."""
+        code, out = _git(path, *args)
+        if code != 0:
+            if not status.error:  # keep the first problem: the later ones repeat it
+                status.error = out.splitlines()[0][:300] if out else "git failed"
+            return ""
+        return out
+
+    status.branch = value("rev-parse", "--abbrev-ref", "HEAD")
+    status.commit = value("rev-parse", "--short", "HEAD")
+    status.commit_date = value("log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M")
     code, out = _git(path, "status", "--porcelain", "--untracked-files=no")
     status.dirty = code == 0 and bool(out)
     if check_remote:

@@ -44,6 +44,11 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   (an existing Docker install keeps its data folder).
 
 **Fixed**
+- Hub, *Program & updates*: the commit and branch showed git's "detected dubious
+  ownership" error (the code belongs to root, the web service runs as `shacklog`). Git
+  now trusts the program's own folder for these read-only checks, and a git problem is
+  shown once as a warning, never in place of a value. A hub that has never checked
+  says to press *Check now*.
 - Docker: the first start failed when Docker created the data folder itself (owned by
   root, while ShackLog runs as its own user). The container now hands the folder over
   before starting. CI builds and starts the image.
