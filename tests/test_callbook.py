@@ -1,7 +1,6 @@
 """Callbook lookups: HamQTH and QRZ.com answers, sessions, cache (no network)."""
 
 import io
-import time
 import urllib.parse
 
 import pytest
