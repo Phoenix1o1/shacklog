@@ -93,6 +93,7 @@ class Label:
     to: str  # the callsign on the card
     via: str | None  # QSL manager, if any
     qsos: list = field(default_factory=list)
+    address: list[str] = field(default_factory=list)  # postal address, for direct cards
 
 
 def labels_for(qsos: list, per_label: int = 4) -> list[Label]:

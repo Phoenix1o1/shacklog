@@ -66,6 +66,22 @@
     });
   });
 
+  // "Use these details" (callbook): fill the form's empty boxes, never overwrite.
+  document.addEventListener("click", function (e) {
+    var button = e.target.closest ? e.target.closest("[data-fill]") : null;
+    if (!button) return;
+    var values = JSON.parse(button.getAttribute("data-fill") || "{}");
+    var scope = button.closest("form") || document;
+    Object.keys(values).forEach(function (name) {
+      var input = scope.querySelector('[name="' + name + '"]');
+      if (input && !input.value) {
+        input.value = values[name];
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    button.disabled = true;
+  });
+
   // Dark / light theme.
   var themeBtn = document.querySelector("[data-theme-toggle]");
   if (themeBtn) themeBtn.addEventListener("click", function () {

@@ -312,6 +312,14 @@ def country_of(call: str | None) -> dict | None:
     return result
 
 
+def callbook():
+    """The callbook set up in Settings › General (it may be "none": see ``configured``)."""
+    from shacklog.services.callbook import Callbook
+
+    return Callbook(current_app.config["PATHS"].data_dir, setting("callbook_service") or "",
+                    setting("callbook_user") or "", setting("callbook_password") or "")
+
+
 def register_template_helpers(app) -> None:
     app.jinja_env.filters.update(
         dt=f_dt, day=f_day, hm=f_time, freq=f_freq, km=f_km, bearing=f_bearing,

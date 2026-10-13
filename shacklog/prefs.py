@@ -33,6 +33,10 @@ DEFAULTS: dict[str, object] = {
     "backup_mirror_keep": 30,
     # --- updates (desktop; the hub uses the control/auto-update flag file) ---
     "auto_update": True,  # check GitHub at start and update before opening
+    # --- callbook (services/callbook.py); local secrets, never synced or logged ---
+    "callbook_service": "",  # "", "hamqth" or "qrz"
+    "callbook_user": None,
+    "callbook_password": None,
     # --- country list (services/cty.py) ---
     "cty_auto_update": True,  # download AD1C's list when missing or a month old
     # --- map tiles (services/tiles.py) ---
@@ -42,6 +46,13 @@ DEFAULTS: dict[str, object] = {
     # --- OFFgrid-SDR (desktop) ---
     "offgrid_sdr_path": None,  # full path of OFFgrid-SDR's index.html; None = auto-detect
 }
+
+
+#: Settings that are secrets: kept out of bundles (they are copies that travel on USB
+#: sticks), never shown back in a form, never logged. Local backups keep them, so a
+#: restore needs no new password.
+SECRET_KEYS = frozenset({"password_hash", "sync_hub_token", "sync_client_token",
+                         "callbook_password"})
 
 
 def default(key: str):

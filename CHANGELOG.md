@@ -20,10 +20,19 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   mark sent with date and route, cards waiting, and "a card arrived" with scans of the
   card stored in the library and linked to the QSOs. Dates and routes are the ADIF
   fields `QSLSDATE`/`QSLRDATE`/`QSL_SENT_VIA`/`QSL_RCVD_VIA`, so exports carry them.
+- **Callbook** (HamQTH or QRZ.com, *Settings › General*): cached details under the
+  callsign while logging, **Look up** on demand, **Use these details** fills the empty
+  boxes; full entry with postal address on the callsign page; direct-QSL labels carry
+  the address. Answers cached a month in `<data>/reference/callbook.sqlite3`.
 - **Offline map.** ShackLog serves the map tiles itself: from offline map files
   (`.mbtiles`, *Settings › Import, export & backups › Map*), from a cache of every tile
   already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With
   no internet, cached and offline areas still show. Tile server can be changed.
+
+**Fixed**
+- Bundles no longer contain this instance's secrets (web password hash, sync tokens,
+  callbook password): they are removed from the copy of the database that goes in the
+  zip. Local backups still keep them.
 
 **Fixed** (review of the Windows background mode and automatic updates)
 - An update that changed the update script itself could derail it: Windows (and bash)

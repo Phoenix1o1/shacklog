@@ -126,6 +126,9 @@ def index():
             h.save_setting("require_login_local", False)
             s.commit()
             flash("Password removed. Only this computer can open ShackLog in desktop mode.", "ok")
+        elif action.startswith("callbook"):
+            _callbook_action(action)
+            return redirect(url_for(".index") + "#callbook")
         elif action == "rebuild_search":
             from shacklog.services import search
 
@@ -156,8 +159,41 @@ def index():
         page_size=h.setting("page_size"), has_password=bool(h.setting("password_hash")),
         require_login_local=bool(h.setting("require_login_local")), about=about,
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
-        min_password=MIN_PASSWORD_LENGTH,
+        min_password=MIN_PASSWORD_LENGTH, callbook=h.callbook(), callbook_services=_callbook_services(),
     )
+
+
+def _callbook_services():
+    from shacklog.services.callbook import SERVICES
+
+    return SERVICES
+
+
+def _callbook_action(action: str) -> None:
+    """Settings › General › Callbook: service and login, test, empty the cache."""
+    from shacklog.services.callbook import SERVICES, CallbookError
+
+    if action == "callbook":
+        service = request.form.get("callbook_service", "")
+        if service not in dict(SERVICES):
+            abort(400, description="Unknown callbook.")
+        h.save_setting("callbook_service", service)
+        h.save_setting("callbook_user", request.form.get("callbook_user", "").strip() or None)
+        password = request.form.get("callbook_password", "")
+        if password or not service:  # empty box = keep the saved one
+            h.save_setting("callbook_password", password or None)
+        h.session().commit()
+        flash("Callbook saved." if service else "Callbook turned off.", "ok")
+    elif action == "callbook_test":
+        try:
+            flash(h.callbook().test(), "ok")
+        except CallbookError as exc:
+            flash(f"The callbook doesn't work: {exc}", "error")
+    elif action == "callbook_clear":
+        h.callbook().cache.clear()
+        flash("Emptied the callbook cache.", "ok")
+    else:
+        abort(400, description="Unknown action.")
 
 
 def _quit(message: str = "quit"):

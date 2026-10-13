@@ -29,14 +29,24 @@ your phone can browse.
 
 Dates and times are **UTC**. Fields marked with *Now (UTC)* fill in the current time.
 
+### Callbook
+
+Set up HamQTH (free account) or QRZ.com under *Settings › General › Callbook*. While
+logging, what's already known about the callsign shows under it at once; **Look up**
+asks the callbook (typing never does), and **Use these details** fills the empty name,
+QTH, locator and QSL-via boxes. The callsign page shows the full entry with the postal
+address. Answers are kept for a month on this computer (not synced). The password stays
+on this computer: it isn't synced and isn't in bundles.
+
 ### QSL cards
 
 *QSL cards* (side menu) follows paper cards:
 
 1. **To send**: QSOs whose *QSL sent* is *Requested* or *Queued*. Tick them, **Print
    labels** (A4 sheets of 3 × 7 labels, 70 × 42 mm; up to four QSOs per label, routed
-   to the QSL manager when there is one), then **Mark as sent** with the date and route
-   (bureau, direct…).
+   to the QSL manager when there is one; with the route *Direct* they carry the postal
+   address from the callbook), then **Mark as sent** with the date and route (bureau,
+   direct…).
 2. **Waiting for a card**: sent, not yet confirmed.
 3. **A card arrived**: type the callsign, tick the QSOs on the card, **Mark as received**.
    Add scans of the front and back: they go to the library, linked to those QSOs.

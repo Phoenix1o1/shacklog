@@ -76,6 +76,34 @@
       {% endif %}
     </section>
 
+    <section class="panel" id="callbook">
+      <h2>Callbook</h2>
+      <p>Who is behind a callsign: name, QTH, locator, postal address for direct QSL cards. While logging, cached details show under the callsign at once; <b>Look up</b> asks the callbook. <a href="https://www.hamqth.com">HamQTH</a> is free with an account; QRZ.com gives full details with an XML subscription.</p>
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="callbook">
+        <div class="field w-third"><label for="cb-service">Callbook</label>
+          <select id="cb-service" name="callbook_service">
+            {% for value, label in callbook_services %}<option value="{{ value }}"{% if value == callbook.service %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="field w-third"><label for="cb-user">User name</label>
+          <input id="cb-user" name="callbook_user" value="{{ callbook.user }}" autocomplete="off" spellcheck="false"></div>
+        <div class="field w-third"><label for="cb-password">Password</label>
+          <input id="cb-password" type="password" name="callbook_password" autocomplete="new-password" placeholder="{{ 'saved: leave empty to keep' if callbook.password else '' }}"></div>
+        <p class="field-help w-full">Kept on this {{ 'computer' if desktop else 'server' }} only: never synced, never written to the log.</p>
+        <div class="form-actions"><button class="btn btn-primary">Save callbook</button></div>
+      </form>
+      {% set cached = callbook.cache.stats() %}
+      <div class="settings-row">
+        {% if callbook.configured %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="callbook_test"><button class="btn">Test the login</button></form>
+        {% endif %}
+        {% if cached[0] %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="callbook_clear"><button class="btn btn-quiet">Empty the cache ({{ cached[0] }} callsign{{ '' if cached[0] == 1 else 's' }})</button></form>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="panel">
       <h2>Search index</h2>
       <p>Search keeps its own index, updated with every change. If results ever look incomplete, rebuild it from the data. Nothing else changes.</p>

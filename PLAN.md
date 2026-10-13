@@ -173,6 +173,8 @@ shacklog/
     chirp.py           CHIRP CSV read/write, repeater ↔ channel, channel diff
     repeater_lists.py  RepeaterBook / national / spreadsheet repeater lists → repeater fields
     tiles.py           map tiles: offline MBTiles files, disk cache, tile server
+    callbook.py        HamQTH / QRZ.com XML lookups with a local cache
+    qsl.py             paper QSL workflow (ADIF QSLSDATE/QSLRDATE in extra_adif), labels
     touchstone.py      .s1p/.s2p parsing, SWR summary, SVG plot
     filestore.py       content-addressed blob store, text extraction
     search.py          FTS5 index maintenance and queries
@@ -231,7 +233,8 @@ spurious conflicts.
 
 **Phase 2** (in progress): ~~DXCC/country from `cty.dat`~~ (done: `services/cty.py`,
 reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
-callbook lookup (QRZ/HamQTH) with cache ·
+~~callbook lookup (QRZ/HamQTH) with cache~~ (done: `services/callbook.py`, cache in
+`<data>/reference/callbook.sqlite3`, looks up only on demand) ·
 ~~QSL card workflow~~ (done: `services/qsl.py` + `views/qsl.py`, ADIF date/route fields
 in `extra_adif`, labels) · ~~offline map tiles~~ (done: `services/tiles.py`, `/map/tiles/…`:
 MBTiles → cache → tile server; no bulk download, per OSM policy) · ADX (XML ADIF) · repeater list importers

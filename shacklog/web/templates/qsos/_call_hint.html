@@ -9,3 +9,4 @@
 <p class="muted">New callsign.{% if heard %} Heard {{ heard }}× in the listening log.{% endif %}</p>
 {% endif %}
 {% if country %}<p class="small{{ '' if new_country else ' muted' }}">{% if new_country %}<b>New country.</b> {% endif %}{{ country_line(country) }}</p>{% endif %}
+{% include "qsos/_callbook.html" %}

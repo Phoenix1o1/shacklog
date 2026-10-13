@@ -659,6 +659,7 @@ code.path, .facts dd { overflow-wrap: anywhere; }
 .qsl-label table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
 .qsl-label th { text-align: left; font-weight: 600; border-bottom: .2mm solid #000; }
 .qsl-to { font-size: 10pt; }
+.qsl-address { font-size: 8pt; }
 .qsl-from { margin-top: auto; font-size: 7.5pt; }
 @media screen { .qsl-label { outline: 1px dashed #bbb; } }
 @media print {

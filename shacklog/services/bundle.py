@@ -86,6 +86,21 @@ def _scratch(paths, suffix: str) -> Path:
 # Export
 # ---------------------------------------------------------------------------
 
+def _remove_secrets(snapshot: Path) -> None:
+    """Drop this instance's secrets (password hash, sync tokens, callbook password) from
+    the copy going into a bundle; VACUUM so no trace stays in the file's free pages."""
+    from shacklog.prefs import SECRET_KEYS
+
+    conn = sqlite3.connect(str(snapshot))
+    try:
+        keys = sorted(SECRET_KEYS)
+        conn.execute(f"DELETE FROM settings WHERE key IN ({','.join('?' * len(keys))})", keys)
+        conn.commit()
+        conn.execute("VACUUM")
+    finally:
+        conn.close()
+
+
 def export_bundle(db, paths, out_path: Path) -> Path:
     """Write a bundle zip of the database and every referenced library file."""
     out_path = Path(out_path)
@@ -95,6 +110,7 @@ def export_bundle(db, paths, out_path: Path) -> Path:
     store = FileStore(paths.files)
     try:
         backup.copy_database(db, snapshot)
+        _remove_secrets(snapshot)
         # Counts and hashes come from the snapshot, so the manifest matches the zip.
         engine = make_engine(snapshot)
         try:

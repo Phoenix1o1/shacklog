@@ -13,6 +13,7 @@
   {% for label in labels %}
     <div class="qsl-label">
       <div class="qsl-to">To <b>{{ label.to }}</b>{% if label.via %} via <b>{{ label.via }}</b>{% endif %}</div>
+      {% if label.address %}<div class="qsl-address">{% for line in label.address %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
       <table>
         <thead><tr><th>Date</th><th>UTC</th><th>Band</th><th>Mode</th><th>RST</th></tr></thead>
         <tbody>

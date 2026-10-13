@@ -81,7 +81,15 @@ def mark():
         return redirect(back)
     if action == "labels":
         per_label = 4 if request.form.get("per_label") != "1" else 1
-        return render_template("qsl/labels.html", labels=qsl.labels_for(qsos, per_label),
+        labels = qsl.labels_for(qsos, per_label)
+        if request.form.get("route") in ("D", "M"):
+            # Direct cards need the postal address: the callbook's, if it's in the cache
+            # (no lookups here: a sheet of labels mustn't spend dozens of them).
+            book = h.callbook()
+            for label in labels:
+                entry = book.cached(label.via or label.to)
+                label.address = entry.address if entry else []
+        return render_template("qsl/labels.html", labels=labels,
                                my_call=_my_call(qsos), route=request.form.get("route"),
                                route_labels=qsl.ROUTE_LABELS)
     route = request.form.get("route") or None
