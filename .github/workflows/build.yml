@@ -43,7 +43,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -S warning -x deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
-            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh deploy/docker/entrypoint.sh \
+            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh deploy/proxmox/shacklog-ctl-host deploy/docker/entrypoint.sh \
             packaging/build_unix.sh packaging/update_unix.sh
 
   docker:

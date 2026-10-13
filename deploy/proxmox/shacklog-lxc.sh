@@ -385,13 +385,17 @@ create_container
 install_app
 backup_job
 
+# The same "shacklog-ctl" on the host: it runs the container's one (deploy/proxmox/shacklog-ctl-host).
+chmod 0755 "$REPO_ROOT/deploy/proxmox/shacklog-ctl-host"
+ln -sf "$REPO_ROOT/deploy/proxmox/shacklog-ctl-host" /usr/local/bin/shacklog-ctl
+
 IP=$(pct exec "$CTID" -- hostname -I | awk '{print $1}')
 CODE=$(pct exec "$CTID" -- bash -c "journalctl -u shacklog --no-pager -n 200 | grep -o 'setup code [0-9-]*' | tail -1 | awk '{print \$3}'" || true)
 echo
 msg_ok "Completed successfully!\n"
 echo -e "${TAB}${BLD}Open ShackLog:${CL}  ${BL}http://${IP}:${PORT}/${CL}"
 [ -n "$CODE" ] && echo -e "${TAB}First visit:    enter setup code ${GN}${CODE}${CL} and choose a password"
-echo -e "${TAB}Manage:         ${DGN}pct enter $CTID${CL}  then  ${DGN}shacklog-ctl status | update | restart | logs | backup${CL}"
-echo -e "${TAB}Remove:         ${DGN}pct enter $CTID${CL}  then  ${DGN}shacklog-ctl uninstall${CL}  (or on the host: bash deploy/uninstall.sh)"
+echo -e "${TAB}Manage:         ${DGN}shacklog-ctl status | update | restart | logs | backup${CL}  (here on the host, or inside: pct enter $CTID)"
+echo -e "${TAB}Remove:         ${DGN}shacklog-ctl uninstall${CL}  (or on the host: bash deploy/uninstall.sh)"
 echo -e "${TAB}Other computers: Settings › Sync › hub address http://${IP}:${PORT}"
 echo

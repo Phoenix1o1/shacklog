@@ -43,6 +43,9 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   interrupted writes are removed at start, the Docker files are in `deploy/docker/`
   (an existing Docker install keeps its data folder).
 
+- `shacklog-ctl` works on the Proxmox host too: the container creator installs a host
+  helper that runs it in the ShackLog container (`--ct <ID>` to choose one).
+
 **Fixed**
 - Hub, *Program & updates*: the commit and branch showed git's "detected dubious
   ownership" error (the code belongs to root, the web service runs as `shacklog`). Git

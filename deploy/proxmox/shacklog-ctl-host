@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# =====================================================================================
+#  shacklog-ctl on the Proxmox HOST: runs the real shacklog-ctl inside the ShackLog
+#  container, so the same commands work on the host and in the container:
+#
+#      shacklog-ctl status | update | check | restart | logs | backup | …
+#      shacklog-ctl --ct 105 status        when there is more than one ShackLog container
+#
+#  The container is the one tagged "shacklog" (deploy/proxmox/shacklog-lxc.sh tags it),
+#  or the one named in SHACKLOG_CT / --ct. Installed by shacklog-lxc.sh as a link:
+#      /usr/local/bin/shacklog-ctl -> <repo clone>/deploy/proxmox/shacklog-ctl-host
+# =====================================================================================
+set -euo pipefail
+
+die() { echo " ✗ $*" >&2; exit 1; }
+command -v pct >/dev/null 2>&1 || die "This is the Proxmox host helper; pct isn't here. Inside the container, shacklog-ctl is the real one."
+[ "$(id -u)" -eq 0 ] || die "Run as root (sudo shacklog-ctl $*)."
+
+CT="${SHACKLOG_CT:-}"
+if [ "${1:-}" = "--ct" ]; then
+  CT="${2:-}"; shift 2 || die "--ct needs a container ID."
+fi
+
+# Containers tagged "shacklog" (tags are ;-separated in the config).
+shacklog_containers() {
+  local id
+  for id in $(pct list 2>/dev/null | awk 'NR>1 {print $1}'); do
+    if pct config "$id" 2>/dev/null | grep -qE '^tags:.*(^|[ ;:])shacklog([;, ]|$)'; then
+      echo "$id"
+    fi
+  done
+}
+
+if [ -z "$CT" ]; then
+  mapfile -t found < <(shacklog_containers)
+  case ${#found[@]} in
+    0) die "No container tagged \"shacklog\" on this host. Name it: shacklog-ctl --ct <ID> …  (pct list shows the IDs)" ;;
+    1) CT=${found[0]} ;;
+    *) die "Several ShackLog containers (${found[*]}). Choose one: shacklog-ctl --ct <ID> …" ;;
+  esac
+fi
+[[ $CT =~ ^[0-9]+$ ]] || die "\"$CT\" isn't a container ID."
+pct status "$CT" >/dev/null 2>&1 || die "No container $CT."
+
+if ! pct status "$CT" | grep -q running; then
+  if [ "${1:-}" = "start" ]; then
+    pct start "$CT"
+    echo " ✓ Container $CT started (ShackLog starts with it)."
+    exit 0
+  fi
+  die "Container $CT is stopped. Start it with: pct start $CT  (or: shacklog-ctl start)"
+fi
+
+exec pct exec "$CT" -- shacklog-ctl "$@"

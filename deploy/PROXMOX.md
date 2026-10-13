@@ -85,7 +85,26 @@ other instances** and generate the token for your PCs.
 
 ## 4. Day to day — `shacklog-ctl`
 
-From the host: `pct enter <ID>`, then:
+`shacklog-ctl` lives **inside the container**. On the Proxmox host, the container
+creator also installs a host `shacklog-ctl` that runs the same command in the container
+tagged `shacklog`, so either works:
+
+```bash
+shacklog-ctl status                 # on the host (or inside the container)
+shacklog-ctl --ct 105 update        # if there is more than one ShackLog container
+pct enter <ID>                      # or work inside the container directly
+```
+
+A host that got its container before this helper existed: install it once from your
+clone (after `git pull`):
+
+```bash
+ln -sf "$PWD/deploy/proxmox/shacklog-ctl-host" /usr/local/bin/shacklog-ctl
+```
+
+(It is a link into the clone: keep the clone, or run the line again from a new one.)
+
+Commands:
 
 | Command | What it does |
 |---|---|

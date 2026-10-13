@@ -98,3 +98,30 @@ def test_restore_archive(tmp_path):
     assert "No file" in check("check_archive", (tmp_path / "missing.tar.gz").as_posix())
     assert "readable" in check("check_archive", (tmp_path / "bad.tar.gz").as_posix())
     assert ".tar.gz" in check("check_archive", VALIDATE.as_posix())
+
+
+def test_host_shacklog_ctl_finds_the_tagged_container(tmp_path):
+    """On the Proxmox host, shacklog-ctl forwards to the container tagged "shacklog"."""
+    fake = tmp_path / "pct"
+    fake.write_text("""#!/bin/bash
+case "$1" in
+  list) printf 'VMID Status Lock Name\\n101 running pihole\\n105 running shacklog\\n';;
+  config) [ "$2" = 105 ] && echo "tags: radio;shacklog" || echo "tags: dns";;
+  status) echo "status: running";;
+  exec) echo "ct=$2 cmd=${*:4}";;
+esac
+""")
+    fake.chmod(0o755)
+    host = VALIDATE.parent / "shacklog-ctl-host"
+
+    def ctl(*args):
+        done = subprocess.run(["bash", str(host), *args], capture_output=True, text=True,
+                              env={"PATH": f"{tmp_path}:/usr/bin:/bin"}, timeout=30)
+        return done.returncode, (done.stdout + done.stderr).strip()
+
+    if subprocess.run(["id", "-u"], capture_output=True, text=True).stdout.strip() != "0":
+        assert "Run as root" in ctl("status")[1]
+        return
+    assert ctl("status") == (0, "ct=105 cmd=shacklog-ctl status")
+    assert ctl("--ct", "101", "logs", "-f") == (0, "ct=101 cmd=shacklog-ctl logs -f")
+    assert "isn't a container ID" in ctl("--ct", "x", "status")[1]
