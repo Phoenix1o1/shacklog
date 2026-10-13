@@ -54,7 +54,8 @@
 <form class="filterbar" method="get" action="{{ url_for(request.endpoint, **(request.view_args or {})) }}">
   {% if request.args.get('sort') %}<input type="hidden" name="sort" value="{{ request.args.get('sort') }}">{% endif %}
   {% if request.args.get('dir') %}<input type="hidden" name="dir" value="{{ request.args.get('dir') }}">{% endif %}
-  {% for f in filters if f.kind == 'bbox' %}{{ filter_input(f, fchoices) }}{% endfor %}
+  {# the map area is set from the map only: carried as a hidden field, no label #}
+  {% for f in filters if f.kind == 'bbox' %}<input type="hidden" name="{{ f.name }}" value="{{ request.args.get(f.name, '') }}">{% endfor %}
   <div class="filter-row">
     {% for f in basic %}{{ filter_input(f, fchoices) }}{% endfor %}
   </div>

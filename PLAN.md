@@ -202,6 +202,8 @@ URL convention per section `X`: `/X/` list+filters · `/X/new` · `/X/<id>` ·
 | waitress | Production WSGI server on Windows, Linux, macOS | Pure Python |
 | platformdirs | Correct per-OS data folder | Pure Python |
 | pypdf | Text extraction from PDF manuals for search | Pure Python, optional at runtime |
+| markdown | Knowledge-base notes and the in-app help | Pure Python |
+| pystray + Pillow | Tray icon for background mode | **Windows only** (environment marker in requirements.txt) |
 | htmx, Leaflet (vendored) | Live checks, map | Static files, no CDN |
 | pytest, PyInstaller | Tests and executables | Dev only |
 
@@ -217,6 +219,12 @@ trash, desktop/server modes, executables, Docker/LXC deployment.
 web server controls via a systemd path unit, update-from-git on PCs, WAL checkpointing + clean exit,
 backup mirror folder, knowledge base (Markdown notes, references, manuals, pins), SDR monitor with
 OFFgrid-SDR and memory export.
+
+**Phase 1c — v1.1.0, 13 Oct 2026 (in service)**: duplicate finder + merge (Settings ›
+Duplicates), dark "night" theme by default with a light switch, persistent side navigation
+(drawer on phones), Windows background mode with a tray icon and start-at-sign-in, in-app
+help (user guide, credits), re-import of a newer bundle from the same source without
+spurious conflicts.
 
 **Phase 2**: DXCC/country from `cty.dat` · callbook lookup (QRZ/HamQTH) with cache ·
 QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers

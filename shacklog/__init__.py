@@ -12,7 +12,7 @@ The package is organised in layers (see PLAN.md §4):
 APP_NAME = "ShackLog"
 
 #: Semantic version. Bump the minor number when the database schema changes.
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 #: Default TCP port. 8573 has no well-known service on it.
 DEFAULT_PORT = 8573

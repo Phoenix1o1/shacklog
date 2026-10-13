@@ -232,10 +232,6 @@ code, .code { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monos
 .ledger {
   width: 100%; border-collapse: separate; border-spacing: 0;
   font-variant-numeric: tabular-nums;
-  /* the red double margin rule of a paper log */
-  background-image: linear-gradient(90deg, transparent 2.1rem, var(--margin) 2.1rem, var(--margin) calc(2.1rem + 1px),
-    transparent calc(2.1rem + 1px), transparent calc(2.1rem + 3px), var(--margin) calc(2.1rem + 3px),
-    var(--margin) calc(2.1rem + 4px), transparent calc(2.1rem + 4px));
 }
 .ledger th, .ledger td { padding: .45rem .6rem; text-align: left; vertical-align: top; }
 .ledger th { font-size: var(--step--1); color: var(--ink-2); font-weight: 700; border-bottom: 2px solid var(--rule-strong); white-space: nowrap; background: var(--surface); }
@@ -243,7 +239,8 @@ code, .code { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monos
 .ledger th a:hover { color: var(--accent); }
 .ledger tbody tr:nth-child(even) td { background: var(--bar); }
 .ledger tbody tr:hover td { background: var(--accent-soft); }
-.ledger td:first-child, .ledger th:first-child { width: 2.1rem; padding-right: .3rem; color: var(--ink-2); font-size: var(--step--1); }
+.ledger td:first-child, .ledger th:first-child { width: 2.1rem; padding-right: .3rem; color: var(--ink-2); font-size: var(--step--1);
+  border-right: 3px double var(--margin); /* the red double margin rule of a paper log */ }
 .ledger td:nth-child(2), .ledger th:nth-child(2) { padding-left: .9rem; }
 .ledger td.wrap { white-space: normal; min-width: 12rem; }
 .ledger a.rowlink { color: var(--ink); text-decoration: none; }
@@ -408,7 +405,7 @@ input.t-freq { font-variant-numeric: tabular-nums; }
   .ledger tbody tr:nth-child(even) { background: var(--bar); }
   .ledger tbody tr:nth-child(even) td, .ledger tbody tr:hover td { background: transparent; }
   .ledger td { padding: .1rem 0; border: 0; }
-  .ledger td:first-child { width: auto; font-size: var(--step--1); }
+  .ledger td:first-child { width: auto; font-size: var(--step--1); border-right: 0; }
   .ledger td:nth-child(2) { padding-left: 0; }
   .ledger td[data-label]:not(.primary)::before { content: attr(data-label) " "; color: var(--ink-2); font-size: var(--step--1); }
   .ledger td.primary { font-size: var(--step-1); }
