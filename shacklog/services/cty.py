@@ -285,7 +285,9 @@ def configure(data_dir: Path | None) -> None:
 
 
 def reference_dir(data_dir: Path) -> Path:
-    return Path(data_dir) / "reference"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).reference
 
 
 def installed_file(data_dir: Path) -> Path | None:

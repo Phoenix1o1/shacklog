@@ -7,7 +7,7 @@ from pathlib import Path
 from shacklog.models import ImportLog, Repeater
 from tests.conftest import csrf
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / "data" / "formats"
 
 
 def _upload(client, name):

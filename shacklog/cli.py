@@ -73,8 +73,30 @@ def clean_tmp(paths: Paths) -> None:
             pass
 
 
+def clean_leftovers(paths: Paths) -> int:
+    """Remove half-written files an interrupted write can leave behind (they are written
+    under a temporary name and renamed when complete, so these are never real data):
+    ``*.tmp`` in control/ and reference/, ``.….partial`` in backups/, ``.…`` temporary
+    tiles in maps/cache/. Returns how many were removed."""
+    patterns = [(paths.control, "*.tmp"), (paths.reference, "*.tmp"),
+                (paths.backups, ".*.partial"), (paths.maps / "cache", "**/.*")]
+    removed = 0
+    for folder, pattern in patterns:
+        if not folder.is_dir():
+            continue
+        for leftover in folder.glob(pattern):
+            if leftover.is_file():
+                try:
+                    leftover.unlink()
+                    removed += 1
+                except OSError:
+                    pass
+    return removed
+
+
 def startup_maintenance(db: Database, paths: Paths) -> None:
     clean_tmp(paths)
+    clean_leftovers(paths)
     daily_backup(db, paths)
 
 
@@ -299,7 +321,7 @@ def cmd_desktop(args) -> int:
     banner([
         f"{APP_NAME} {__version__} is running at {url}",
         "",
-        f"Your data (database, library files, backups):",
+        "Your data (database, library files, backups):",
         f"  {paths.data_dir}",
         f"  database file: {paths.database.name}",
         "",

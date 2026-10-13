@@ -6,7 +6,6 @@ test client, so every byte goes through the real endpoints, auth and merge code.
 
 from __future__ import annotations
 
-import io
 from datetime import datetime
 
 import pytest

@@ -161,7 +161,9 @@ class Cache:
     """``<data>/reference/callbook.sqlite3``: one JSON answer per callsign."""
 
     def __init__(self, data_dir: Path):
-        self.path = Path(data_dir) / "reference" / "callbook.sqlite3"
+        from shacklog.config import Paths
+
+        self.path = Paths(Path(data_dir)).reference / "callbook.sqlite3"
 
     def _connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)

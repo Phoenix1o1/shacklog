@@ -365,7 +365,9 @@ def control_available() -> bool:
 
 
 def request_file(data_dir: Path) -> Path:
-    return data_dir / "control" / "request"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).control / "request"
 
 
 def write_server_request(data_dir: Path, action: str) -> None:
@@ -379,7 +381,9 @@ def write_server_request(data_dir: Path, action: str) -> None:
 
 
 def last_control_log(data_dir: Path, lines: int = 40) -> str:
-    log_path = data_dir / "control" / "last.log"
+    from shacklog.config import Paths
+
+    log_path = Paths(Path(data_dir)).control / "last.log"
     try:
         return "\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:])
     except OSError:

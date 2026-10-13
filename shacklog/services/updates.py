@@ -39,7 +39,9 @@ FETCH_TIMEOUT_S = 20
 
 
 def control_dir(data_dir: Path) -> Path:
-    return Path(data_dir) / "control"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).control
 
 
 def status_file(data_dir: Path) -> Path:

@@ -64,7 +64,20 @@ def default_data_dir() -> Path:
 
 @dataclass(frozen=True)
 class Paths:
-    """All filesystem locations derived from the data directory."""
+    """All filesystem locations derived from the data directory — the one place that
+    names them. The data folder holds::
+
+        shacklog.sqlite3    the logbook (the only thing that syncs, with files/)
+        files/              library files, content-addressed (services/filestore.py)
+        backups/            automatic and manual database backups
+        reference/          downloaded reference data, re-creatable: country list,
+                            callbook cache
+        maps/               offline map files (*.mbtiles) and cache/ of viewed tiles
+        control/            update status and requests between the program and the
+                            hub's shacklog-ctl (which hard-codes "control" too)
+        tmp/                scratch for uploads and imports, emptied at every start
+        secret.key          web session key        shacklog.log   the program's log
+    """
 
     data_dir: Path
 
@@ -85,6 +98,21 @@ class Paths:
     def tmp(self) -> Path:
         """Scratch space for uploads and imports; emptied at startup."""
         return self.data_dir / "tmp"
+
+    @property
+    def reference(self) -> Path:
+        """Downloaded reference data: country list, callbook cache. Safe to delete."""
+        return self.data_dir / "reference"
+
+    @property
+    def maps(self) -> Path:
+        """Offline map files (*.mbtiles) and the tile cache in ``maps/cache``."""
+        return self.data_dir / "maps"
+
+    @property
+    def control(self) -> Path:
+        """Update status and server requests (services/updates.py, system.py)."""
+        return self.data_dir / "control"
 
     @property
     def secret_key_file(self) -> Path:

@@ -1,6 +1,6 @@
 # ShackLog hub for Proxmox (or any Docker host).
-# Build:  docker build -f deploy/Dockerfile -t shacklog .
-# Run:    see deploy/docker-compose.yml
+# Build:  docker build -f deploy/docker/Dockerfile -t shacklog .   (from the project root)
+# Run:    see deploy/docker/docker-compose.yml
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

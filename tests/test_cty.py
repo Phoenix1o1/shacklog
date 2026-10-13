@@ -6,7 +6,7 @@ import pytest
 
 from shacklog.services import cty
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / "data" / "formats"
 
 
 @pytest.fixture(params=["cty_sample.dat", "cty_sample.csv"])

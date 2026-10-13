@@ -74,3 +74,20 @@ def test_prune_keeps_newest_of_each_kind(tmp_path):
     assert daily[0]["created"] == base + timedelta(days=4)
     backup.prune(tmp_path, keep_daily=0, keep_other=0)  # 0 = keep everything
     assert len(backup.list_backups(tmp_path)) == 5
+
+
+def test_startup_removes_only_half_written_leftovers(tmp_path):
+    from shacklog.cli import clean_leftovers
+    from shacklog.config import Paths
+
+    paths = Paths(tmp_path).ensure()
+    leftovers = [paths.control / "update.tmp", paths.reference / "cty.csv.tmp",
+                 paths.backups / ".shacklog-x.sqlite3.partial", paths.maps / "cache" / "5" / "1" / ".2.99"]
+    keep = [paths.control / "update.json", paths.reference / "cty.csv",
+            paths.backups / "shacklog-x.sqlite3", paths.maps / "cache" / "5" / "1" / "2",
+            paths.maps / "alps.mbtiles"]
+    for path in leftovers + keep:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    assert clean_leftovers(paths) == len(leftovers)
+    assert not any(p.exists() for p in leftovers) and all(p.exists() for p in keep)

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-import shutil
 import sqlite3
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 

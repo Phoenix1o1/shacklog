@@ -6,7 +6,7 @@ import pytest
 
 from shacklog.services import repeater_lists as rl
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / "data" / "formats"
 
 
 def _read(name):

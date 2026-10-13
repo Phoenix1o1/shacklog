@@ -22,7 +22,6 @@ import json
 import logging
 import socket
 import sqlite3
-import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
@@ -32,7 +31,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from shacklog import migrations
-from shacklog.models import Meta, SeqCounter, Setting, SyncMixin, new_uuid, utcnow
+from shacklog.models import Setting, SyncMixin, new_uuid, utcnow
 from shacklog.services import geo, search
 
 log = logging.getLogger(__name__)

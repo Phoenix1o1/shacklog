@@ -1,0 +1,19 @@
+# docker compose -f deploy/docker/docker-compose.yml up -d --build   (run from the project root)
+services:
+  shacklog:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: shacklog
+    restart: unless-stopped
+    ports:
+      - "8573:8573"
+    volumes:
+      # database, library files, backups — back this up. deploy/shacklog-data, the same
+      # folder as before this file moved into deploy/docker/.
+      - ../shacklog-data:/data
+    environment:
+      # Optional: set the web password on first start instead of using the setup code.
+      # Remove it again afterwards.
+      # SHACKLOG_PASSWORD: "change-me-please"
+      TZ: Europe/Rome

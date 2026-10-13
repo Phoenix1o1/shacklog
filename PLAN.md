@@ -192,7 +192,9 @@ shacklog/
     templates/, static/ (css, js, vendored htmx + Leaflet)
 tests/                 pytest
 packaging/             PyInstaller spec, build scripts
-deploy/                Dockerfile, compose, systemd unit, Proxmox guide
+deploy/                install/uninstall, shacklog-ctl, systemd units, Proxmox guide
+  deploy/proxmox/       LXC creator (shacklog-lxc.sh) + its input checks (validate.sh)
+  deploy/docker/        Dockerfile and compose file
 ```
 
 URL convention per section `X`: `/X/` list+filters · `/X/new` · `/X/<id>` ·

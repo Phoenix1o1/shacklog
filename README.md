@@ -85,7 +85,7 @@ service, and can restore your data and schedule vzdump backups to your NAS. Then
 password. Everything else (updates, `shacklog-ctl`, uninstall, backups, HTTPS) is in
 **[deploy/PROXMOX.md](deploy/PROXMOX.md)**.
 
-Docker works too: `deploy/docker-compose.yml`.
+Docker works too: `docker compose -f deploy/docker/docker-compose.yml up -d --build`.
 
 ### Connect the PCs to the hub
 

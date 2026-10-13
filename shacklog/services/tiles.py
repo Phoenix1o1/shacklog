@@ -80,7 +80,9 @@ def safe_url(url: str | None) -> bool:
 
 
 def maps_dir(data_dir: Path) -> Path:
-    return Path(data_dir) / "maps"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).maps
 
 
 def cache_dir(data_dir: Path) -> Path:

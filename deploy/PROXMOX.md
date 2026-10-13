@@ -138,5 +138,5 @@ isolation), the installer refuses to run on the host, and containers get `nestin
 
 ## Docker (alternative)
 
-`deploy/Dockerfile` and `deploy/docker-compose.yml` still work for a Docker host. The
+`deploy/docker/Dockerfile` and `deploy/docker/docker-compose.yml` still work for a Docker host. The
 LXC route above is the recommended one on Proxmox.

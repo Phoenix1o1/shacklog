@@ -1,7 +1,6 @@
 """Automatic updates (desktop at launch, hub status file) and the instance card."""
 
 import hashlib
-import json
 import subprocess
 from pathlib import Path
 
