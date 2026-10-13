@@ -439,6 +439,7 @@ def _country_action(action: str) -> None:
 def _tiles_action(action: str) -> None:
     """Settings › Data › Map: offline map files, the tile cache, where tiles come from."""
     import sqlite3
+    from contextlib import closing
 
     from shacklog.services import tiles
 
@@ -473,9 +474,9 @@ def _tiles_action(action: str) -> None:
         tmp = _paths().tmp / f"upload-{uuid.uuid4().hex}.mbtiles"
         upload.save(tmp)
         try:
-            with sqlite3.connect(f"file:{tmp}?mode=ro", uri=True) as conn:
+            # closing(): on Windows an open file can't be deleted or moved.
+            with closing(sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)) as conn:
                 conn.execute("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT 1")
-            conn.close()
         except sqlite3.Error:
             tmp.unlink(missing_ok=True)
             flash(f"{name} isn't an MBTiles map file.", "error")

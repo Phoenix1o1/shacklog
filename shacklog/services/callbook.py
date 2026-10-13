@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from contextlib import closing
 import threading
 import time
 import urllib.parse
@@ -165,8 +166,12 @@ class Cache:
     def _connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.path, timeout=5)
-        conn.execute("CREATE TABLE IF NOT EXISTS answers (call TEXT PRIMARY KEY, "
-                     "fetched REAL NOT NULL, found INTEGER NOT NULL, data TEXT)")
+        try:
+            conn.execute("CREATE TABLE IF NOT EXISTS answers (call TEXT PRIMARY KEY, "
+                         "fetched REAL NOT NULL, found INTEGER NOT NULL, data TEXT)")
+        except sqlite3.Error:
+            conn.close()  # Windows keeps an open file locked
+            raise
         return conn
 
     def get(self, call: str, max_age_s: float | None = None) -> tuple[bool, Entry | None]:
@@ -174,10 +179,9 @@ class Cache:
         if not self.path.is_file():
             return False, None
         try:
-            with self._connect() as conn:
+            with closing(self._connect()) as conn, conn:
                 row = conn.execute("SELECT fetched, found, data FROM answers WHERE call = ?",
                                    (call,)).fetchone()
-            conn.close()
         except sqlite3.Error:
             return False, None
         if row is None:
@@ -196,11 +200,10 @@ class Cache:
 
     def put(self, call: str, entry: Entry | None) -> None:
         try:
-            with self._connect() as conn:
+            with closing(self._connect()) as conn, conn:
                 conn.execute("INSERT OR REPLACE INTO answers VALUES (?, ?, ?, ?)",
                              (call, time.time(), int(entry is not None),
                               json.dumps(asdict(entry)) if entry else None))
-            conn.close()
         except sqlite3.Error:
             log.warning("Couldn't write the callbook cache")
 
@@ -209,9 +212,8 @@ class Cache:
         if not self.path.is_file():
             return 0, 0
         try:
-            with self._connect() as conn:
+            with closing(self._connect()) as conn, conn:
                 count = conn.execute("SELECT COUNT(*) FROM answers WHERE found = 1").fetchone()[0]
-            conn.close()
         except sqlite3.Error:
             count = 0
         return count, self.path.stat().st_size

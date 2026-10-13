@@ -240,7 +240,9 @@ def test_bundle_carries_no_secrets(tmp_path):
         raw = zf.read(bundle.DATABASE)
     assert b"SECRET-" not in raw
     (tmp_path / "x.sqlite3").write_bytes(raw)
-    with sqlite3.connect(tmp_path / "x.sqlite3") as conn:
+    from contextlib import closing
+
+    with closing(sqlite3.connect(tmp_path / "x.sqlite3")) as conn:
         assert conn.execute("SELECT value FROM settings WHERE key='page_size'").fetchone()
     with db.transaction() as s:  # the live database still has them
         from shacklog.db import get_setting

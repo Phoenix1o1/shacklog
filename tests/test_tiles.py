@@ -3,6 +3,7 @@
 import io
 import os
 import sqlite3
+from contextlib import closing
 import time
 import urllib.error
 
@@ -33,14 +34,13 @@ def online_again(monkeypatch):
 
 
 def make_mbtiles(path, z=5, x=16, y=10, data=JPEG):
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute("CREATE TABLE metadata (name TEXT, value TEXT)")
         conn.execute("CREATE TABLE tiles (zoom_level INT, tile_column INT, tile_row INT, tile_data BLOB)")
         conn.executemany("INSERT INTO metadata VALUES (?, ?)", [
             ("name", "Alps"), ("format", "jpg"), ("minzoom", "5"), ("maxzoom", "12"),
             ("attribution", "<b>Map</b> data")])
         conn.execute("INSERT INTO tiles VALUES (?, ?, ?, ?)", (z, x, 2 ** z - 1 - y, data))
-    conn.close()
 
 
 def test_fetches_once_then_serves_the_cache(tmp_path):

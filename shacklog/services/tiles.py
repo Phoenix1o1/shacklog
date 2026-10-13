@@ -25,6 +25,7 @@ import logging
 import os
 import re
 import sqlite3
+from contextlib import closing
 import threading
 import time
 import urllib.error
@@ -100,7 +101,7 @@ def mbtiles_info(path: Path) -> dict:
     info = {"file": path.name, "size": path.stat().st_size, "name": path.stem,
             "format": "", "minzoom": None, "maxzoom": None, "attribution": "", "ok": True}
     try:
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
+        with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as conn:
             for name, value in conn.execute("SELECT name, value FROM metadata"):
                 if name in ("name", "format", "attribution"):
                     info[name] = value or ""
@@ -118,7 +119,7 @@ def mbtiles_info(path: Path) -> dict:
 
 def _from_mbtiles(path: Path, z: int, x: int, y: int) -> bytes | None:
     try:
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
+        with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as conn:
             row = conn.execute(
                 "SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?",
                 (z, x, (2 ** z - 1) - y)).fetchone()  # MBTiles counts rows from the south
