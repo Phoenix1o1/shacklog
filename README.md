@@ -14,8 +14,10 @@ PC syncs with and that your phone can browse.
 | | |
 |---|---|
 | **Logs** | QSOs (ADIF in/out), listening log (SWL), antenna & test journal with NanoVNA sweep plots, station diary. All times UTC. |
-| **Station** | Repeaters (CHIRP CSV import, *export the repeaters within N km as a CHIRP channel list*), radio configurations (every CHIRP image kept, channels parsed and diffed), stations, equipment, contacts. Anything can be linked to anything. |
-| **Find anything** | Full-text search, including inside PDF manuals. Filters by callsign (wildcards), repeater, radio, antenna, band, mode and dates, plus distance from any station or locator. Saved filters, map, statistics, a page per callsign. |
+| **Station** | Repeaters (CHIRP CSV, RepeaterBook and national lists import, *export the repeaters within N km as a CHIRP channel list*), radio configurations (every CHIRP image kept, channels parsed and diffed), stations, equipment, contacts. Anything can be linked to anything. |
+| **On the air** | Typing a callsign shows its country, zones and beam heading from your station (AD1C's country list), *worked before* and *new country*, and the callbook entry (HamQTH or QRZ.com) with one click to fill in name, QTH and locator. |
+| **QSL cards** | What to send, printable address labels, cards out, cards back, with the scans of the card linked to the QSOs. |
+| **Find anything** | Full-text search, including inside PDF manuals. Filters by callsign (wildcards), repeater, radio, antenna, band, mode and dates, plus distance from any station or locator. Saved filters, a map that works offline (tile cache, MBTiles files), statistics, a page per callsign. |
 | **Knowledge base** | Markdown notes written in the browser, quick references, manuals, band plans. Pin the ones you use to the dashboard. |
 | **SDR monitor** | [OFFgrid-SDR](https://github.com/diddy-boy/OFFgrid-SDR), a WebUSB RTL-SDR receiver, next to a one-click listening log. It exports your repeaters as OFFgrid-SDR memories so you can scan for activity. |
 | **Sync** | Every PC keeps a full copy and the hub collects everything. Conflicting edits are kept, never dropped. Bundles (one zip) cover machines with no network. |
