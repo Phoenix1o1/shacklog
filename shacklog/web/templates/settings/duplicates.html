@@ -1,0 +1,41 @@
+{% extends "settings/_layout.html" %}
+{% from "_ui.html" import page_head, empty %}
+{% from "_forms.html" import csrf %}
+{% block title %}Duplicates{% endblock %}
+{% block settings_body %}
+{% call page_head("Duplicates", "Records that look like the same thing: same station name and place, same equipment name, same repeater frequency and callsign, same contact, same file.") %}{% endcall %}
+
+{% if groups %}
+<p class="prose">Choose the one to keep and press <b>Merge</b>. Everything that pointed at the others
+  (QSOs, listening entries, configs, links, files) moves to the one you keep, its empty fields are
+  filled from the others, and the others go to the Trash. The merge syncs to your other instances.</p>
+{% for g in groups %}
+<section class="panel">
+  <h2>{{ g.model.__label__ }}: {{ g.records[0].display_name() }}</h2>
+  <form method="post" class="merge-form">
+    {{ csrf() }}
+    <input type="hidden" name="entity" value="{{ g.entity }}">
+    <table class="ledger compact">
+      <thead><tr><th>Keep</th><th>Record</th><th>Created</th><th>From instance</th><th class="num">Used by</th></tr></thead>
+      <tbody>
+      {% for r in g.records %}
+        <tr>
+          <td><input type="radio" name="keep" value="{{ r.id }}" {% if loop.first %}checked{% endif %} aria-label="Keep this one">
+              <input type="hidden" name="ids" value="{{ r.id }}"></td>
+          <td class="primary" data-label="Record">{% set url = entity_url(g.entity, r.id) %}{% if url %}<a href="{{ url }}">{{ r.display_name() }}</a>{% else %}{{ r.display_name() }}{% endif %}
+            <span class="muted small">{{ r.id[:8] }}</span></td>
+          <td data-label="Created">{{ r.created_at|dt }}</td>
+          <td data-label="From">{{ (r.origin_instance or '')[:8] }}</td>
+          <td class="num" data-label="Used by">{{ usage[r.id] }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="form-actions"><button class="btn btn-primary">Merge into the chosen one</button></div>
+  </form>
+</section>
+{% endfor %}
+{% else %}
+{{ empty("No duplicates found. Nice and tidy.") }}
+{% endif %}
+{% endblock %}

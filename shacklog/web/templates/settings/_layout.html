@@ -5,7 +5,7 @@
 {% extends "base.html" %}
 {% block content %}
 <nav class="settings-nav" aria-label="Settings pages">
-  {% for endpoint, label in [('settings.index', 'General'), ('settings.program', 'Program & updates'), ('settings.sync', 'Sync'), ('settings.data', 'Import, export & backups'), ('settings.conflicts', 'Conflicts'), ('settings.trash', 'Trash')] %}
+  {% for endpoint, label in [('settings.index', 'General'), ('settings.program', 'Program & updates'), ('settings.sync', 'Sync'), ('settings.data', 'Import, export & backups'), ('settings.conflicts', 'Conflicts'), ('settings.duplicates', 'Duplicates'), ('settings.trash', 'Trash')] %}
   <a href="{{ url_for(endpoint) }}" {% if endpoint == 'settings.' ~ settings_tab %}aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
 </nav>

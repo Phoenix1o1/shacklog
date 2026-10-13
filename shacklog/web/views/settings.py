@@ -629,3 +629,35 @@ def _sdr_found() -> str | None:
         return str(found) if found else None
     except Exception:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Duplicates: find and merge
+# ---------------------------------------------------------------------------
+
+@bp.route("/duplicates", methods=["GET", "POST"])
+def duplicates():
+    from shacklog.models import ENTITIES
+    from shacklog.services import merge as merge_svc
+
+    s = h.session()
+    if request.method == "POST":
+        model = ENTITIES.get(request.form.get("entity", ""))
+        keep = request.form.get("keep", "")
+        others = [i for i in request.form.getlist("ids") if i and i != keep]
+        if model is None or model not in merge_svc.MERGEABLE or not keep or not others:
+            flash("Pick the record to keep.", "error")
+            return redirect(url_for(".duplicates"))
+        try:
+            result = merge_svc.merge(s, model, keep, others)
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for(".duplicates"))
+        s.commit()
+        flash(f"Merged {result.merged} into one: {result.references} references and "
+              f"{result.links} links moved. The merged copies are in the Trash.", "ok")
+        return redirect(url_for(".duplicates"))
+    groups = merge_svc.find_duplicates(s)
+    usage = {r.id: merge_svc.usage_count(s, r) for g in groups for r in g.records}
+    return render_template("settings/duplicates.html", settings_tab="duplicates",
+                           groups=groups, usage=usage)
