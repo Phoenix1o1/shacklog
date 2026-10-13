@@ -56,6 +56,14 @@ In the style of the Proxmox VE Helper Scripts it offers:
 | Unprivileged + nesting | yes | Nesting lets systemd work properly inside the container. |
 | Start at boot | yes | |
 
+Every answer is checked as you type it, and a wrong one is asked again with the reason
+(nothing is created until the summary): the address must be a valid IPv4 host address
+with its prefix (`192.168.1.50/24`, not the network or broadcast address), suggested
+from the bridge's own network; the gateway must be in the same network; an address
+already set on another container or VM, or answering ping, is flagged before it is
+used. Container ID, hostname, cores (up to the host's), memory, disk, VLAN (1–4094),
+port (1024–65535), backup time and the restore archive are checked the same way.
+
 Then it asks:
 
 - **GitHub token** (the repository is private): github.com › Settings › Developer settings ›

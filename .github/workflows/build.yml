@@ -42,8 +42,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint shell scripts
         run: |
-          shellcheck -S warning deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
-            deploy/proxmox/shacklog-lxc.sh packaging/build_unix.sh packaging/update_unix.sh
+          shellcheck -S warning -x deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
+            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh packaging/build_unix.sh packaging/update_unix.sh
 
   executable:
     needs: test

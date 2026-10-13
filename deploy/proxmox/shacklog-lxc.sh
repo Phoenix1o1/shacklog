@@ -79,6 +79,34 @@ trap 'stop_spinner' EXIT
 BACKTITLE="Proxmox VE — $APP"
 wt() { whiptail --backtitle "$BACKTITLE" "$@" 3>&1 1>&2 2>&3; }
 
+# shellcheck source=deploy/proxmox/validate.sh
+source "$(dirname "${BASH_SOURCE[0]}")/validate.sh"
+
+check_ctid_free() {  # a valid ID that no container or VM uses yet
+  local msg; msg=$(check_ctid "$1")
+  [ -n "$msg" ] && { echo "$msg"; return; }
+  if pct status "$1" >/dev/null 2>&1 || qm status "$1" >/dev/null 2>&1; then
+    echo "ID $1 is already used by another container or VM; the next free one is $(pvesh get /cluster/nextid)."
+  fi
+}
+
+# Who already has this IPv4 address: another guest configured with it, or a device
+# that answers ping on the network. Prints a description, or nothing.
+ip_in_use() {
+  local ip=$1 conf guest
+  for conf in /etc/pve/nodes/*/lxc/*.conf /etc/pve/nodes/*/qemu-server/*.conf; do
+    [ -f "$conf" ] || continue
+    if grep -qE "(^|[ ,=])ip=${ip//./\\.}/" "$conf"; then
+      guest=$(basename "$conf" .conf)
+      echo "it is set on guest $guest ($(grep -m1 -E '^(hostname|name):' "$conf" | awk '{print $2}'))"
+      return
+    fi
+  done
+  if ping -c 1 -W 1 "$ip" >/dev/null 2>&1; then
+    echo "a device on the network already answers at $ip"
+  fi
+}
+
 # ------------------------------------------------------------------ checks
 pve_check() {
   [ "$(id -u)" -eq 0 ] || { msg_error "Run as root on the Proxmox host."; exit 1; }
@@ -126,33 +154,52 @@ default_settings() {
 }
 
 advanced_settings() {
-  CTID=$(wt --title "Container ID" --inputbox "Container ID:" 9 58 "$(pvesh get /cluster/nextid)") || exit 0
-  if pct status "$CTID" >/dev/null 2>&1 || qm status "$CTID" >/dev/null 2>&1; then
-    msg_error "ID $CTID is already used."; exit 1
-  fi
-  HN=$(wt --title "Hostname" --inputbox "Hostname of the container:" 9 58 "$NSAPP") || exit 0
-  CORES=$(wt --title "CPU cores" --inputbox \
-"CPU cores. 1 is plenty: the hub is idle most of the time.
-Use 2 only if you index many large PDF manuals." 11 62 "$var_cpu") || exit 0
-  RAM=$(wt --title "RAM (MB)" --inputbox \
+  local free; free=$(pvesh get /cluster/nextid)
+  CTID=$(ask "Container ID" "Container ID (100 or more):" "$free" check_ctid_free) || exit 0
+  HN=$(ask "Hostname" "Hostname of the container:" "$NSAPP" check_hostname) || exit 0
+  local host_cores; host_cores=$(nproc 2>/dev/null || echo 128)
+  CORES=$(ask "CPU cores" \
+"CPU cores (this host has $host_cores). 1 is plenty: the hub is idle most of the time.
+Use 2 only if you index many large PDF manuals." "$var_cpu" check_cores "$host_cores") || exit 0
+  RAM=$(ask "RAM (MB)" \
 "Memory in MB. ShackLog uses about 120 MB.
-512 is recommended; 1024 if you upload many big PDFs." 11 62 "$var_ram") || exit 0
-  SWAP=$(wt --title "Swap (MB)" --inputbox "Swap in MB:" 9 58 "$var_swap") || exit 0
-  DISK=$(wt --title "Disk (GB)" --inputbox \
+512 is recommended; 1024 if you upload many big PDFs." "$var_ram" check_ram) || exit 0
+  SWAP=$(ask "Swap (MB)" "Swap in MB:" "$var_swap" check_swap) || exit 0
+  DISK=$(ask "Disk (GB)" \
 "Root disk in GB. System ~1.5 GB, program ~0.3 GB; the rest
 holds your database, manuals, photos and local backups.
-8 GB is a good start; grow it later with: pct resize ID rootfs +8G" 12 66 "$var_disk") || exit 0
+8 GB is a good start; grow it later with: pct resize ID rootfs +8G" "$var_disk" check_disk) || exit 0
   STORAGE=$(storage_menu rootdir "Container storage (where the disk lives)")
   BRIDGE=$(bridge_menu)
   if wt --title "IP address" --yesno "Get the address by DHCP?\n\nChoose No to set a static address (recommended for a server: the other computers sync to it by address)." 11 64; then
     NET=dhcp; GATE=""
   else
-    NET=$(wt --title "Static IP" --inputbox "Address with prefix, e.g. 192.168.1.50/24:" 9 58 "") || exit 0
-    GATE=$(wt --title "Gateway" --inputbox "Gateway, e.g. 192.168.1.1:" 9 58 "") || exit 0
+    static_address
   fi
-  VLAN=$(wt --title "VLAN" --inputbox "VLAN tag (empty for none):" 9 58 "") || exit 0
-  PORT=$(wt --title "Web port" --inputbox "Port ShackLog listens on:" 9 58 "$var_port") || exit 0
+  VLAN=$(ask "VLAN" "VLAN tag 1-4094 (empty for none):" "" check_vlan) || exit 0
+  PORT=$(ask "Web port" "Port ShackLog listens on (1024-65535):" "$var_port" check_port) || exit 0
   if wt --title "Start at boot" --yesno "Start the container when Proxmox boots?" 8 58; then ONBOOT=1; else ONBOOT=0; fi
+}
+
+# Static IPv4: address/prefix and gateway, checked as they are typed, then a check that
+# nobody has the address yet. The suggestion comes from the bridge's own network.
+static_address() {
+  local suggest="" bridge_net gw_guess used
+  bridge_net=$(ip -4 -o addr show "$BRIDGE" 2>/dev/null | awk '{print $4}' | head -1)
+  if [ -n "$bridge_net" ] && [ -z "$(check_cidr "$bridge_net")" ]; then
+    suggest="${bridge_net%.*/*}.50/${bridge_net#*/}"
+  fi
+  while true; do
+    NET=$(ask "Static IP" "Address with prefix, e.g. 192.168.1.50/24${bridge_net:+ (this host: $bridge_net)}:" \
+      "${NET:-$suggest}" check_cidr) || exit 0
+    used=$(ip_in_use "${NET%/*}")
+    [ -z "$used" ] && break
+    wt --title "Address in use" --yesno "${NET%/*} looks taken: $used.\n\nTwo devices with one address both lose their connection. Choose another address?\n\n(No = use it anyway)" 13 70 || break
+    NET=""
+  done
+  gw_guess=$(ip -4 route show default dev "$BRIDGE" 2>/dev/null | awk '{print $3; exit}')
+  GATE=$(ask "Gateway" "Gateway (your router), e.g. 192.168.1.1:" \
+    "${gw_guess:-}" check_gateway "$NET") || exit 0
 }
 
 extra_questions() {
@@ -183,8 +230,7 @@ Restore it into the new container? (Your previous hub's database,
 files and backups, made by the uninstaller or 'shacklog-ctl backup'.)" 13 72; then
     RESTORE=$newest
   elif wt --title "Restore data" --defaultno --yesno "Restore data from another archive (.tar.gz)?" 8 60; then
-    RESTORE=$(wt --title "Restore data" --inputbox "Path of the archive on this host:" 9 70 "/root/") || exit 0
-    [ -f "$RESTORE" ] || { msg_error "No such file: $RESTORE"; exit 1; }
+    RESTORE=$(ask "Restore data" "Path of the archive on this host:" "/root/" check_archive) || exit 0
   fi
 
   BACKUP_STORAGE=""; BACKUP_TIME="03:30"
@@ -199,7 +245,7 @@ and 6 monthly copies." 14 68; then
     if [ -z "$BACKUP_STORAGE" ]; then
       whiptail --backtitle "$BACKTITLE" --msgbox "No storage accepts backups yet. Add your NAS in Datacenter › Storage (content: VZDump backup file), then create the job in Datacenter › Backup." 10 70
     else
-      BACKUP_TIME=$(wt --title "Backup time" --inputbox "Time of day (HH:MM, host time):" 9 58 "03:30") || exit 0
+      BACKUP_TIME=$(ask "Backup time" "Time of day (HH:MM, 24 h, host time):" "03:30" check_time) || exit 0
     fi
   fi
 }
@@ -271,7 +317,15 @@ create_container() {
     pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1 && break
     sleep 1
   done
-  pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1 || { msg_error "The container has no network/DNS."; exit 1; }
+  if ! pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1; then
+    if [ "$NET" = dhcp ]; then
+      msg_error "The container got no working network by DHCP on $BRIDGE (no address, or no DNS)."
+    else
+      msg_error "The container can't reach the internet: check gateway $GATE and the address $NET on $BRIDGE${VLAN:+ (VLAN $VLAN)}, and that this host's DNS works."
+    fi
+    echo -e "   Look inside: ${BL}pct enter $CTID${CL} then ${BL}ip a; ip r; cat /etc/resolv.conf${CL}. Remove it: ${BL}pct stop $CTID; pct destroy $CTID${CL}"
+    exit 1
+  fi
   msg_ok "Container running and online"
 }
 
