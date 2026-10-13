@@ -6,6 +6,7 @@
 {% call page_head("Repeaters", "Repeaters, nodes and beacons. Filter by distance from a station, then send the list to a radio as a CHIRP CSV.") %}
   <a class="btn btn-primary" href="{{ url_for('repeaters.new') }}">Add repeater</a>
   <a class="btn" href="{{ url_for('repeaters.import_chirp') }}">Import CHIRP CSV</a>
+  <a class="btn" href="{{ url_for('repeaters.import_list') }}">Import a repeater list</a>
   <a class="btn" href="{{ url_for('repeaters.export_csv') }}?{{ query_string() }}">Export CSV</a>
   <a class="btn btn-quiet" href="{{ url_for('map.index', layer='repeater') }}&{{ query_string() }}">Show on map</a>
 {% endcall %}

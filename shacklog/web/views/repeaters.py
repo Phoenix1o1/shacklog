@@ -18,11 +18,13 @@ import csv
 import io
 import json
 import re
+import uuid
 from datetime import date, datetime
 
 from flask import (
     Blueprint,
     Response,
+    abort,
     current_app,
     flash,
     redirect,
@@ -459,6 +461,109 @@ def import_chirp():
     return render_template("repeaters/import_done.html", filename=upload.filename,
                            created=created, duplicates=duplicates, simplex=simplex,
                            errors=errors, include_simplex=include_simplex)
+
+
+# ---------------------------------------------------------------------------
+# Repeater lists (RepeaterBook, national lists, spreadsheets)
+# ---------------------------------------------------------------------------
+
+def _list_upload_path(token: str):
+    """Where an uploaded list waits between the preview and the import."""
+    if not re.fullmatch(r"[0-9a-f]{32}", token or ""):
+        abort(400, description="That upload has expired. Choose the file again.")
+    return current_app.config["PATHS"].tmp / f"repeater-list-{token}"
+
+
+@bp.route("/import-list", methods=["GET", "POST"])
+def import_list():
+    """Step 1: upload and preview the guessed columns. Step 2 (``token``): import."""
+    from shacklog.services import repeater_lists as rl
+
+    s = h.session()
+    if request.method == "GET":
+        return render_template("repeaters/import_list.html", reference=reference_station(s),
+                               table=None)
+    token = request.form.get("token")
+    if token:
+        return _import_list_rows(token)
+
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        flash("Choose a repeater list first.", "error")
+        return redirect(url_for(".import_list"))
+    data = upload.read()
+    try:
+        table = rl.read_table(rl.decode(data))
+    except (ValueError, UnicodeError) as exc:
+        flash(f"Couldn't read {upload.filename} as a repeater list: {exc}", "error")
+        return redirect(url_for(".import_list"))
+    token = uuid.uuid4().hex
+    path = _list_upload_path(token)
+    path.write_bytes(data)
+    path.with_suffix(".name").write_text(upload.filename, encoding="utf-8")
+    mapping = rl.guess_mapping(table.headers, table.rows)
+    preview = rl.rows_to_repeaters(table, mapping)
+    return render_template(
+        "repeaters/import_list.html", reference=reference_station(s), table=table,
+        mapping=mapping, fields=rl.FIELDS, token=token, filename=upload.filename,
+        preview=preview.repeaters[:10], readable=len(preview.repeaters),
+        unreadable=len(preview.errors), kinds=dict(REPEATER_KINDS))
+
+
+def _import_list_rows(token: str):
+    from shacklog.services import repeater_lists as rl
+
+    s = h.session()
+    path = _list_upload_path(token)
+    if not path.is_file():
+        flash("That upload has expired. Choose the file again.", "error")
+        return redirect(url_for(".import_list"))
+    filename = path.with_suffix(".name").read_text(encoding="utf-8") \
+        if path.with_suffix(".name").is_file() else "repeater list"
+    table = rl.read_table(rl.decode(path.read_bytes()))
+    mapping = {}
+    for index in range(len(table.headers)):
+        value = request.form.get(f"col_{index}", "")
+        if value in rl.FIELDS:
+            mapping[index] = value
+    if "output_mhz" not in mapping.values():
+        flash("Choose which column holds the output frequency.", "error")
+        return redirect(url_for(".import_list"))
+    result = rl.rows_to_repeaters(table, mapping)
+    _backup_before_import("before-repeater-list-import")
+
+    country = request.form.get("country", "").strip() or None
+    region = request.form.get("region", "").strip() or None
+    source = request.form.get("source", "").strip() or f"{table.source} {filename}"
+    existing = [(r.output_mhz, r.name, r.callsign) for r in h.live(Repeater).all()]
+    created: list[Repeater] = []
+    duplicates: list[str] = []
+    for fields in result.repeaters:
+        out, name, call = fields["output_mhz"], fields["name"], fields.get("callsign")
+        if any(_same_repeater(out, name, call, *other) for other in existing):
+            duplicates.append(f"{name} {out:.4f}")
+            continue
+        rep = Repeater(kind="FM", status="active")
+        for key, value in fields.items():
+            if key in _REPEATER_FIELDS:
+                setattr(rep, key, value)
+        rep.country = rep.country or country
+        rep.region = rep.region or region
+        rep.source = source[:300]
+        fill_position(rep)
+        s.add(rep)
+        created.append(rep)
+        existing.append((out, name, call))
+
+    summary = {"created": len(created), "duplicates": len(duplicates), "errors": result.errors,
+               "created_ids": [r.id for r in created]}
+    s.add(ImportLog(kind="repeater-list", filename=filename, summary=json.dumps(summary)))
+    s.commit()
+    path.unlink(missing_ok=True)
+    path.with_suffix(".name").unlink(missing_ok=True)
+    return render_template("repeaters/import_done.html", filename=filename, created=created,
+                           duplicates=duplicates, simplex=None, errors=result.errors,
+                           include_simplex=True, again_url=url_for(".import_list"))
 
 
 def _backup_before_import(reason: str) -> None:

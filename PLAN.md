@@ -171,6 +171,7 @@ shacklog/
     bands.py           frequency → band, modes/submodes, default RST, service hints
     adif.py            ADI parser/writer + ADIF ↔ QSO field mapping
     chirp.py           CHIRP CSV read/write, repeater ↔ channel, channel diff
+    repeater_lists.py  RepeaterBook / national / spreadsheet repeater lists → repeater fields
     touchstone.py      .s1p/.s2p parsing, SWR summary, SVG plot
     filestore.py       content-addressed blob store, text extraction
     search.py          FTS5 index maintenance and queries
@@ -231,7 +232,8 @@ spurious conflicts.
 reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
 callbook lookup (QRZ/HamQTH) with cache ·
 QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers
-(RepeaterBook, IK2ANE-style CSV) · photo thumbnails.
+(~~RepeaterBook, IK2ANE-style CSV~~ done: `services/repeater_lists.py`, header guessing
++ editable mapping) · photo thumbnails.
 
 **Phase 3**: LoTW/eQSL/ClubLog/QRZ upload · WSJT-X UDP logging · CAT via flrig/Hamlib ·
 awards · contest mode with Cabrillo · translations (Italian/French).

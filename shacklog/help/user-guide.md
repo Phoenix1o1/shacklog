@@ -58,6 +58,11 @@ Every list has a filter bar:
 
 - **Repeaters**: frequencies, shift, tone, position, notes. Import a CHIRP CSV, and
   **export the repeaters near a place** as a CHIRP channel list ready to load into a radio.
+  **Import a repeater list** reads RepeaterBook (JSON or CSV), a national or club list
+  (IK2ANE's, a regional association's…) or any spreadsheet saved as CSV: it shows which
+  column it takes for what (headers in English, Italian or French), you correct what's
+  wrong, and it imports the repeaters that aren't here yet. `145,6125`, `-600`, `-`
+  (usual shift), `88,5`, `D023`, `DMR CC1` and the like are understood.
 - **Radio configs**: keep every CHIRP image (`.img`) and CSV you load into a radio. The
   channels are read and matched to your repeaters; compare two configurations with
   **Diff**; export a channel list back to CHIRP.

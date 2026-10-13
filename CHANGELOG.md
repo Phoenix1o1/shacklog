@@ -12,6 +12,10 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   ones, and *Statistics* counts countries worked. The list is AD1C's `cty.csv` from
   country-files.com, downloaded when missing or a month old (or uploaded by hand). No
   database change: the hub and the PCs keep syncing whichever version they run.
+- **Import a repeater list** (*Repeaters* and *Settings › Import, export & backups*):
+  RepeaterBook JSON/CSV, national and club lists, any CSV with a header line. A preview
+  shows the column guessed for each field and lets you change it; repeaters already
+  here are skipped; a backup is made first.
 
 **Fixed** (review of the Windows background mode and automatic updates)
 - An update that changed the update script itself could derail it: Windows (and bash)

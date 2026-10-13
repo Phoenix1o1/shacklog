@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_forms.html" import csrf %}
+{% block title %}Import a repeater list{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import a repeater list</h1></div>
+{% if not table %}
+<div class="panel prose">
+  <p>Reads a list of repeaters from another source:</p>
+  <ul>
+    <li><b>RepeaterBook</b>: the JSON from its API, or a CSV export;</li>
+    <li>a <b>national or club list</b> (IK2ANE's for Italy, a regional association's…) saved as CSV from the spreadsheet: comma, semicolon or tab separated;</li>
+    <li>any table with a header line naming its columns, in English, Italian or French.</li>
+  </ul>
+  <p>Next you'll see which column {{ app_name }} takes for what, and can correct it before anything is imported. A repeater already here (same output frequency and same name or callsign) is skipped. A backup is made first.</p>
+</div>
+<form method="post" enctype="multipart/form-data" class="record-form">
+  {{ csrf() }}
+  <fieldset class="form-section">
+    <div class="grid">
+      <div class="field w-full"><label for="file">Repeater list</label>
+        <input id="file" type="file" name="file" accept=".csv,.txt,.tsv,.json,text/csv,application/json" required></div>
+    </div>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn-primary">Read the list</button>
+    <a class="btn btn-quiet" href="{{ url_for('repeaters.index') }}">Cancel</a></div>
+</form>
+{% else %}
+<section class="panel">
+  <p><b>{{ filename }}</b> ({{ table.source }}): {{ table.rows|length }} rows, {{ readable }} with an output frequency{% if unreadable %}, {{ unreadable }} without{% endif %}.</p>
+</section>
+<form method="post" class="record-form">
+  {{ csrf() }}
+  <input type="hidden" name="token" value="{{ token }}">
+  <fieldset class="form-section">
+    <legend>Columns</legend>
+    <p class="field-help">What each column of the list holds. Columns set to “Don't import” are left out.</p>
+    <div class="grid">
+      {% for header in table.headers %}
+      {% set index = loop.index0 %}
+      <div class="field w-third"><label for="col_{{ index }}">{{ header or ('Column ' ~ loop.index) }}</label>
+        <select id="col_{{ index }}" name="col_{{ index }}">
+          <option value="">Don't import</option>
+          {% for name, spec in fields.items() %}
+          <option value="{{ name }}"{% if mapping.get(index) == name %} selected{% endif %}>{{ spec[0] }}</option>
+          {% endfor %}
+        </select>
+        {% set sample = (table.rows[0][index] if index < table.rows[0]|length else '') %}
+        {% if sample %}<p class="field-help">e.g. {{ sample|truncate(40) }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="form-section">
+    <legend>For every repeater</legend>
+    <div class="grid">
+      <div class="field w-half"><label for="country">Country, when the list doesn't say</label>
+        <input id="country" name="country" value="{{ reference.country if reference and reference.country else '' }}" placeholder="Italy, France…"></div>
+      <div class="field w-half"><label for="region">Region, when the list doesn't say</label>
+        <input id="region" name="region" placeholder="Lombardia, Isère…"></div>
+      <div class="field w-full"><label for="source">Source</label>
+        <input id="source" name="source" placeholder="Empty: {{ table.source }} {{ filename }}">
+        <p class="field-help">Where the list came from, so you know how much to trust it later.</p></div>
+    </div>
+  </fieldset>
+  {% if preview %}
+  <section class="panel">
+    <h2>First repeaters, as they'll be imported</h2>
+    <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th class="num" aria-label="Line">#</th><th>Name</th><th>Mode</th><th class="num">Output MHz</th><th class="num">Input MHz</th><th class="num">Tone</th><th>Place</th></tr></thead>
+      <tbody>
+      {% for r in preview %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td class="primary" data-label="Name"><b>{{ r.name }}</b></td>
+        <td data-label="Mode">{{ kinds.get(r.kind, r.kind) }}{% if r.color_code is defined %} CC{{ r.color_code }}{% endif %}</td>
+        <td class="num" data-label="Output">{{ r.output_mhz|freq }}</td>
+        <td class="num" data-label="Input">{{ r.input_mhz|freq if r.input_mhz is defined else '' }}</td>
+        <td class="num" data-label="Tone">{{ r.ctcss_up if r.ctcss_up is defined else ('D' ~ r.dcs_code if r.dcs_code is defined else '') }}</td>
+        <td data-label="Place">{{ [r.location_name, r.region, r.locator]|select|join(' · ') }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="small muted">Changed a column above? The import uses your choices; this preview shows the first guess.</p>
+  </section>
+  {% endif %}
+  <div class="form-actions"><button class="btn btn-primary">Import {{ readable }} repeater{{ '' if readable == 1 else 's' }}</button>
+    <a class="btn btn-quiet" href="{{ url_for('repeaters.import_list') }}">Choose another file</a></div>
+</form>
+{% endif %}
+{% endblock %}
