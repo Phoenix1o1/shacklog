@@ -127,8 +127,9 @@ If two computers each created "the same" thing before they first synced (typical
 *Home* station), you'll see it twice. *Settings › Duplicates* lists look-alike stations,
 equipment, repeaters, contacts and files. Pick the one to keep and press **Merge**: every
 QSO, link and setting that pointed at the other copy now points at the one you kept, its
-empty fields are filled in, and the extra copy goes to the Trash. The merge syncs like any
-other edit, so do it once, on any computer.
+empty fields are filled in, and the extra copy goes to the Trash. A backup is taken just
+before. The merge syncs like any other edit, so do it once, on any computer: anything
+another computer logs against the old copy later is moved over when it syncs.
 
 ## Running in the background (Windows)
 
@@ -142,6 +143,7 @@ area next to the clock (click the **^** arrow if the icon is hidden) and opens t
 - *Start when I sign in* (also in *Settings › Program & updates*) starts it quietly at
   login, without opening the browser.
 - Commands still work from a terminal: `ShackLog.exe where`, `ShackLog.exe info`, …
+  (set the login password in *Settings › General* rather than with `set-password`).
 
 On Linux and macOS ShackLog runs in the terminal you started it from.
 
