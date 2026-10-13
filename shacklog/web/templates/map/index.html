@@ -44,7 +44,7 @@
   <noscript><p class="empty">The map needs JavaScript. Every list can still be filtered by distance from a station or locator.</p></noscript>
 </div>
 <p class="map-status" id="map-status" aria-live="polite"></p>
-<p class="small muted">Map tiles come from OpenStreetMap and need an internet connection; the points are drawn from this logbook even offline. Entries without a position or locator are not shown.</p>
+<p class="small muted">Map tiles come from OpenStreetMap; every tile seen once is kept, so places you've looked at show offline too (and whole areas with an offline map file, see <a href="{{ url_for('settings.data') }}#map">Settings</a>). The points are drawn from this logbook either way. Entries without a position or locator are not shown.</p>
 
 <script type="application/json" id="map-config">{{ config|tojson }}</script>
 {% endblock %}

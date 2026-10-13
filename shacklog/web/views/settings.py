@@ -315,6 +315,9 @@ def data():
         elif action.startswith("cty_"):
             _country_action(action)
             return redirect(url_for(".data") + "#countries")
+        elif action.startswith("tiles_"):
+            _tiles_action(action)
+            return redirect(url_for(".data") + "#map")
         else:
             abort(400, description="Unknown action.")
         return redirect(url_for(".data"))
@@ -326,13 +329,18 @@ def data():
         except ValueError:
             summary = {}
         history.append((entry, summary if isinstance(summary, dict) else {}))
-    from shacklog.services import cty
+    from shacklog.services import cty, tiles
 
     missing = (h.live(Qso).filter(or_(Qso.country.is_(None), Qso.country == "")).count())
     return render_template(
         "settings/data.html", backups=backup.list_backups(_paths().backups), history=history,
         cty_info=cty.info(_paths().data_dir), cty_url=cty.SOURCE_URL,
         cty_auto=bool(h.setting("cty_auto_update")), qsos_without_country=missing,
+        map_files=[tiles.mbtiles_info(p) for p in tiles.mbtiles_files(_paths().data_dir)],
+        map_dir=str(tiles.maps_dir(_paths().data_dir)),
+        tile_cache=tiles.cache_usage(_paths().data_dir),
+        tiles_online=bool(h.setting("map_tiles_online")),
+        tile_url=h.setting("map_tile_url") or "", tile_cache_mb=h.setting("map_tile_cache_mb"),
         desktop=current_app.config["MODE"] == "desktop", local_bundles=_local_bundles(),
         backups_dir=str(_paths().backups),
         keep_daily=h.setting("backup_keep_daily"), keep_other=h.setting("backup_keep_import"),
@@ -388,6 +396,73 @@ def _country_action(action: str) -> None:
         h.session().commit()
         flash("The country list will " + ("be downloaded again every month." if want
                                           else "only change when you download or upload it."), "ok")
+    else:
+        abort(400, description="Unknown action.")
+
+
+def _tiles_action(action: str) -> None:
+    """Settings › Data › Map: offline map files, the tile cache, where tiles come from."""
+    import sqlite3
+
+    from shacklog.services import tiles
+
+    data_dir = _paths().data_dir
+    folder = tiles.maps_dir(data_dir)
+    if action == "tiles_settings":
+        url = request.form.get("map_tile_url", "").strip() or None
+        if url and not tiles.safe_url(url):
+            flash("A tile server address starts with http:// or https:// and contains "
+                  "{z}, {x} and {y}.", "error")
+            return
+        try:
+            limit = max(0, min(100_000, int(request.form.get("map_tile_cache_mb", 500))))
+        except ValueError:
+            limit = 500
+        h.save_setting("map_tile_url", url)
+        h.save_setting("map_tile_cache_mb", limit)
+        h.save_setting("map_tiles_online", request.form.get("map_tiles_online") == "1")
+        h.session().commit()
+        tiles.prune_cache(data_dir, limit)
+        flash("Saved the map settings.", "ok")
+    elif action == "tiles_clear":
+        removed = tiles.clear_cache(data_dir)
+        flash(f"Emptied the map tile cache ({removed} tiles).", "ok")
+    elif action == "tiles_upload":
+        upload = request.files.get("file")
+        name = Path(upload.filename).name if upload is not None and upload.filename else ""
+        if not name.lower().endswith(".mbtiles"):
+            flash("Choose an .mbtiles file.", "error")
+            return
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = _paths().tmp / f"upload-{uuid.uuid4().hex}.mbtiles"
+        upload.save(tmp)
+        try:
+            with sqlite3.connect(f"file:{tmp}?mode=ro", uri=True) as conn:
+                conn.execute("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT 1")
+            conn.close()
+        except sqlite3.Error:
+            tmp.unlink(missing_ok=True)
+            flash(f"{name} isn't an MBTiles map file.", "error")
+            return
+        target = folder / name
+        os.replace(tmp, target)
+        info = tiles.mbtiles_info(target)
+        if not info["ok"]:
+            flash(f"Installed {name}, but it can't be shown: {info.get('error')}.", "error")
+        else:
+            flash(f"Installed the offline map {info['name']} (zoom {info['minzoom']}–"
+                  f"{info['maxzoom']}).", "ok")
+    elif action == "tiles_remove":
+        name = request.form.get("file", "")
+        target = folder / Path(name).name
+        if target.suffix == ".mbtiles" and target.is_file():
+            target.unlink()
+            flash(f"Removed the offline map {target.name}.", "ok")
+    elif action == "tiles_open" and current_app.config["MODE"] == "desktop":
+        from shacklog.services import system
+
+        folder.mkdir(parents=True, exist_ok=True)
+        system.open_folder(folder)
     else:
         abort(400, description="Unknown action.")
 

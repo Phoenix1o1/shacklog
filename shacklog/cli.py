@@ -107,6 +107,18 @@ def refresh_country_list(db: Database, paths: Paths) -> None:
         log.exception("Country list update failed")
 
 
+def prune_tile_cache(db: Database, paths: Paths) -> None:
+    """Keep the map tile cache within its size limit (Settings › Data › Map)."""
+    from shacklog.services import tiles
+
+    try:
+        with db.transaction() as s:
+            limit = int(get_setting(s, "map_tile_cache_mb", 500) or 0)
+        tiles.prune_cache(paths.data_dir, limit)
+    except Exception:
+        log.exception("Tile cache cleanup failed")
+
+
 def port_is_free(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET) as sock:
         if os.name != "nt":
@@ -209,6 +221,7 @@ def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates:
     def hourly() -> None:
         daily_backup(db, paths)
         refresh_country_list(db, paths)
+        prune_tile_cache(db, paths)
         hours[0] += 1
         if check_updates and hours[0] % 6 == 0:
             updates.check_now(paths.data_dir)

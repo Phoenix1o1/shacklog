@@ -172,6 +172,7 @@ shacklog/
     adif.py            ADI parser/writer + ADIF ↔ QSO field mapping
     chirp.py           CHIRP CSV read/write, repeater ↔ channel, channel diff
     repeater_lists.py  RepeaterBook / national / spreadsheet repeater lists → repeater fields
+    tiles.py           map tiles: offline MBTiles files, disk cache, tile server
     touchstone.py      .s1p/.s2p parsing, SWR summary, SVG plot
     filestore.py       content-addressed blob store, text extraction
     search.py          FTS5 index maintenance and queries
@@ -231,7 +232,8 @@ spurious conflicts.
 **Phase 2** (in progress): ~~DXCC/country from `cty.dat`~~ (done: `services/cty.py`,
 reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
 callbook lookup (QRZ/HamQTH) with cache ·
-QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers
+QSL card workflow · ~~offline map tiles~~ (done: `services/tiles.py`, `/map/tiles/…`:
+MBTiles → cache → tile server; no bulk download, per OSM policy) · ADX (XML ADIF) · repeater list importers
 (~~RepeaterBook, IK2ANE-style CSV~~ done: `services/repeater_lists.py`, header guessing
 + editable mapping) · photo thumbnails.
 

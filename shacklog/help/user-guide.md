@@ -83,9 +83,13 @@ a QSO to a repeater) from the *Links* box on each page.
   stored once even if uploaded twice.
 - **SDR monitor** (desktop only): see below.
 - **Map**: QSOs, listening entries, repeaters and stations with a position, as layers
-  you switch on and off.
-- **Statistics**: QSOs by band, mode, month and year, longest distance per band,
-  most worked callsigns and most used repeaters, per
+  you switch on and off. Every map tile seen once is kept, so places you've looked at
+  show offline too. For a whole area with no internet (a portable trip), add an
+  offline map file (`.mbtiles`, raster, e.g. made with MOBAC) under *Settings › Import,
+  export & backups › Map*; the cache size and the tile server are set there as well.
+  A phone browsing the hub uses the hub's tiles.
+- **Statistics**: QSOs by band, mode, country, month and year, countries worked,
+  longest distance per band, most worked callsigns and most used repeaters, per
   year and per station.
 
 ## SDR monitor (RTL-SDR)

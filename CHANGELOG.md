@@ -16,6 +16,10 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   RepeaterBook JSON/CSV, national and club lists, any CSV with a header line. A preview
   shows the column guessed for each field and lets you change it; repeaters already
   here are skipped; a backup is made first.
+- **Offline map.** ShackLog serves the map tiles itself: from offline map files
+  (`.mbtiles`, *Settings › Import, export & backups › Map*), from a cache of every tile
+  already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With
+  no internet, cached and offline areas still show. Tile server can be changed.
 
 **Fixed** (review of the Windows background mode and automatic updates)
 - An update that changed the update script itself could derail it: Windows (and bash)
