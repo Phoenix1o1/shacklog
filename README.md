@@ -20,7 +20,8 @@ PC syncs with and that your phone can browse.
 | **SDR monitor** | [OFFgrid-SDR](https://github.com/diddy-boy/OFFgrid-SDR), a WebUSB RTL-SDR receiver, next to a one-click listening log. It exports your repeaters as OFFgrid-SDR memories so you can scan for activity. |
 | **Sync** | Every PC keeps a full copy and the hub collects everything. Conflicting edits are kept, never dropped. Bundles (one zip) cover machines with no network. |
 | **Keep it forever** | Trash instead of hard deletes, a daily backup plus one before every import (optionally mirrored to OneDrive or a NAS), duplicate finder and merge. |
-| **Comfortable** | Dark night theme by default with a light switch, side menu (a drawer on phones), runs in the background on Windows with a tray icon. |
+| **Comfortable** | Dark night theme by default with a light switch, side menu (a drawer on phones) showing which instance you're on (name, IP, port), runs in the background on Windows with a tray icon. |
+| **Self-updating** | PCs update from GitHub at start when online; the hub checks every 6 hours and can install updates by itself, with rollback. |
 
 | Repeaters near home, ready for the radio | Knowledge base |
 |---|---|
@@ -47,8 +48,10 @@ git clone https://github.com/Phoenix1o1/shacklog.git
 shacklog\packaging\build_windows.bat
 ```
 
-`dist\ShackLog.exe` is the program. Later, *Settings › Program & updates › Update now*
-pulls, tests, rebuilds and restarts it.
+`dist\ShackLog.exe` is the program. From then on it **updates itself**: at every start,
+if you're online, it checks GitHub and pulls, tests, rebuilds and restarts when there's
+something new (turn this off in *Settings › Program & updates*, which also has
+**Update now**).
 
 ShackLog has **no window**. It starts in the notification area next to the clock (click
 **^** if the icon is hidden) and opens the browser at `http://127.0.0.1:8573/`.

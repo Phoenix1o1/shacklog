@@ -42,6 +42,11 @@
       <strong>{{ app_name }}</strong>
       <a class="icon-btn" href="#" data-nav-close aria-label="Close menu">✕</a>
     </div>
+    <a class="instance-card" href="{{ url_for('settings.program') }}#instance" title="This instance: name, address, updates">
+      <span class="instance-name">{{ instance_name }}</span>
+      <span class="instance-addr">{{ instance_ip or 'no network' }}{% if instance_port %}:{{ instance_port }}{% endif %} · {{ 'hub' if mode == 'server' else 'this PC' }}</span>
+      {% if update_available %}<span class="instance-update">Update available</span>{% endif %}
+    </a>
     {% for group, items in nav %}
     <div class="nav-group">
       <span class="nav-group-title">{{ group }}</span>
@@ -74,7 +79,8 @@
 </main>
 
   <footer class="footer">
-  <span>{{ app_name }} {{ app_version }} · {{ instance_name }}</span>
+  <span>{{ app_name }} {{ app_version }} · <b>{{ instance_name }}</b>{% if instance_ip %} · {{ instance_ip }}{% if instance_port %}:{{ instance_port }}{% endif %}{% endif %}</span>
+  {% if update_available %}<a href="{{ url_for('settings.program') }}#update" class="sync-pill sync-running">Update available</a>{% endif %}
   {% if sync_status and sync_status.get('configured') %}
   <a href="{{ url_for('settings.sync') }}" class="sync-pill sync-{{ sync_status.get('state', 'idle') }}">
     Sync: {{ sync_status.get('label', 'idle') }}

@@ -590,15 +590,35 @@ def program():
                       f"{' (in the background)' if want else ''}.", "ok")
             except OSError as exc:
                 flash(f"Couldn't change that: {exc}", "error")
-        elif action == "check_update":
-            status = system.repo_status(check_remote=True)
-            if status.error:
-                flash(f"Couldn't reach GitHub: {status.error}", "error")
-            elif status.behind == 0:
-                flash(f"Up to date (version {__version__}, commit {status.commit}).", "ok")
-            elif status.behind:
-                flash(f"{status.behind} new change{'s' if status.behind != 1 else ''} on GitHub. "
-                      "Use “Update now”.", "ok")
+        elif action == "check_update" and desktop:
+            from shacklog.services import updates
+
+            info = updates.check_now(paths.data_dir)
+            if info.get("error"):
+                flash(f"Couldn't check GitHub: {info['error']}", "error")
+            elif info.get("behind") == 0:
+                flash(f"Up to date (version {__version__}, commit {info.get('current')}).", "ok")
+            elif info.get("behind"):
+                flash(f"{info['behind']} new change{'s' if info['behind'] != 1 else ''} on GitHub. "
+                      "Use “Update now”, or restart ShackLog to update.", "ok")
+        elif action == "auto_update":
+            from shacklog.services import updates
+
+            want = request.form.get("enabled") == "1"
+            if desktop:
+                h.save_setting("auto_update", want)
+                s.commit()
+                flash("ShackLog will " + ("check GitHub at every start and update itself first."
+                                          if want else "no longer update by itself at start."), "ok")
+            else:
+                try:
+                    updates.set_hub_auto_install(paths.data_dir, want)
+                except OSError as exc:
+                    flash(f"Couldn't change that: {exc}", "error")
+                    return redirect(url_for(".program"))
+                flash("Updates found by the 6-hourly check will " +
+                      ("be installed automatically (with rollback if they fail)." if want
+                       else "only be shown here."), "ok")
         elif action == "update" and desktop:
             status = system.repo_status()
             if not status.updatable:
@@ -611,6 +631,9 @@ def program():
             if not system.control_available():
                 abort(400, description="Server controls need the systemd install from deploy/.")
             system.write_server_request(paths.data_dir, action)
+            if action == "check":
+                flash("Checking GitHub… reload this page in a few seconds.", "ok")
+                return redirect(url_for(".program") + "#update")
             return render_template("settings/stopped.html", reason=action)
         else:
             abort(400, description="Unknown action.")
@@ -622,6 +645,11 @@ def program():
         data_dir=str(paths.data_dir), database=str(paths.database), status=status,
         version=__version__, control=system.control_available(),
         control_log=system.last_control_log(paths.data_dir),
+        update_info=_update_info(paths.data_dir),
+        auto_update=(bool(h.setting("auto_update")) if desktop
+                     else _hub_auto_install(paths.data_dir)),
+        instance_id=_db().instance_id,
+        addresses=system.local_addresses(),
         mirror_dir=h.setting("backup_mirror_dir") or "",
         mirror_keep=h.setting("backup_mirror_keep") or 30,
         sdr_path=h.setting("offgrid_sdr_path") or "",
@@ -630,6 +658,18 @@ def program():
         os_name=os.name,
         autostart=_autostart_state() if desktop else None,
     )
+
+
+def _update_info(data_dir) -> dict:
+    from shacklog.services import updates
+
+    return updates.read_status(data_dir)
+
+
+def _hub_auto_install(data_dir) -> bool:
+    from shacklog.services import updates
+
+    return updates.hub_auto_install(data_dir)
 
 
 def _autostart_state() -> bool | None:

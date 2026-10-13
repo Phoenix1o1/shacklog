@@ -6,6 +6,8 @@
 #    shacklog-ctl start|stop|restart
 #    shacklog-ctl logs [-f]         recent log (follow with -f)
 #    shacklog-ctl update            git pull + reinstall + restart (rolls back if it fails)
+#    shacklog-ctl check             look for updates (installs them if automatic updates
+#                                   are on in Settings › Program); run every 6 h by a timer
 #    shacklog-ctl backup            database backup now (+ archive of the whole data folder)
 #    shacklog-ctl setup-code        the one-time code for the first password
 #    shacklog-ctl password          set the web password
@@ -69,13 +71,15 @@ ip_address() { hostname -I 2>/dev/null | awk '{print $1}'; }
 
 install_units() {
   local changed=0 f
-  for f in shacklog.service shacklog-control.path shacklog-control.service; do
+  for f in shacklog.service shacklog-control.path shacklog-control.service \
+           shacklog-update-check.service shacklog-update-check.timer; do
     if ! cmp -s "$APP_DIR/deploy/systemd/$f" "/etc/systemd/system/$f"; then
       install -m 0644 "$APP_DIR/deploy/systemd/$f" "/etc/systemd/system/$f"
       changed=1
     fi
   done
   if [ "$changed" = 1 ]; then systemctl daemon-reload; fi
+  systemctl enable --now --quiet shacklog-update-check.timer 2>/dev/null || true
   ln -sf "$APP_DIR/deploy/shacklog-ctl" /usr/local/bin/shacklog-ctl
   chmod 0755 "$APP_DIR/deploy/shacklog-ctl"
 }
@@ -156,6 +160,52 @@ cmd_update() {
   fi
 }
 
+write_update_status() {  # write $CONTROL/update.json for the web page (see services/updates.py)
+  local behind="$1" latest="$2" error="$3" log_json
+  mkdir -p "$CONTROL"
+  log_json=$(git_app --no-pager log --oneline --no-decorate "HEAD..@{u}" 2>/dev/null | head -30 \
+    | "$PY" -c 'import json,sys; print(json.dumps(sys.stdin.read().splitlines()))' 2>/dev/null || echo '[]')
+  "$PY" - "$CONTROL/update.json" "$behind" "$latest" "$error" "$(git_app rev-parse --short HEAD 2>/dev/null)" "$log_json" <<'PYEOF'
+import json, os, sys, datetime
+path, behind, latest, error, current, log = sys.argv[1:7]
+data = {"checked_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source": "hub", "current": current, "latest": latest or current,
+        "behind": int(behind) if behind.isdigit() else None, "error": error, "log": json.loads(log)}
+tmp = path + ".tmp"
+with open(tmp, "w") as fh:
+    json.dump(data, fh, indent=1)
+os.replace(tmp, path)
+PYEOF
+  chown shacklog:shacklog "$CONTROL/update.json" 2>/dev/null || true
+}
+
+cmd_check() {
+  need_root check
+  local quiet="${1:-}" behind latest
+  cd "$APP_DIR"
+  if ! git_app fetch --quiet origin 2>/dev/null; then
+    write_update_status "" "" "Couldn't reach GitHub (offline, or the token in /etc/shacklog/git-credentials expired)."
+    [ "$quiet" = "--quiet" ] || warn "Couldn't reach GitHub."
+    return 0
+  fi
+  behind=$(git_app rev-list --count 'HEAD..@{u}' 2>/dev/null || echo "")
+  latest=$(git_app rev-parse --short '@{u}' 2>/dev/null || echo "")
+  write_update_status "$behind" "$latest" ""
+  if [ "${behind:-0}" -gt 0 ] 2>/dev/null; then
+    [ "$quiet" = "--quiet" ] || info "$behind new change(s) on GitHub."
+    if [ -f "$CONTROL/auto-update" ]; then
+      {
+        echo "== $(date -u '+%Y-%m-%d %H:%M:%S') UTC: automatic update"
+        cmd_update
+      } > "$CONTROL/last.log" 2>&1 || true
+      chown shacklog:shacklog "$CONTROL/last.log" 2>/dev/null || true
+      write_update_status "$(git_app rev-list --count 'HEAD..@{u}' 2>/dev/null || echo "")" "$latest" ""
+    fi
+  else
+    [ "$quiet" = "--quiet" ] || ok "Up to date ($(git_app rev-parse --short HEAD))."
+  fi
+}
+
 cmd_handle_request() {
   # Called by shacklog-control.service when the web UI writes $CONTROL/request.
   local req
@@ -166,6 +216,7 @@ cmd_handle_request() {
     echo "== $(date -u '+%Y-%m-%d %H:%M:%S') UTC: $req"
     case "$req" in
       update)  cmd_update ;;
+      check)   cmd_check ;;
       restart) systemctl restart "$SERVICE" && echo "Restarted." ;;
       stop)    systemctl stop "$SERVICE" && echo "Stopped. Start again with: shacklog-ctl start" ;;
       *)       echo "Ignored unknown request '$req'." ;;
@@ -174,13 +225,14 @@ cmd_handle_request() {
   chown shacklog:shacklog "$CONTROL/last.log" 2>/dev/null || true
 }
 
-usage() { sed -n '3,17p' "$0" | sed 's/^#  \{0,1\}//'; }
+usage() { sed -n '3,19p' "$0" | sed 's/^#  \{0,1\}//'; }
 
 case "${1:-status}" in
   status)          cmd_status ;;
   start|stop|restart) need_root "$1"; systemctl "$1" "$SERVICE"; [ "$1" = stop ] || { healthy 30 && ok "Running." || warn "Not answering yet: shacklog-ctl logs"; } ;;
   logs)            cmd_logs "${2:-}" ;;
   update)          cmd_update "${2:-}" ;;
+  check)           cmd_check "${2:-}" ;;
   backup)          need_root backup; cmd_backup ;;
   setup-code)      cmd_setup_code ;;
   password)        need_root password; as_app set-password ;;

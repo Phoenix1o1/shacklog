@@ -39,7 +39,7 @@ from typing import Callable
 log = logging.getLogger(__name__)
 
 CHECKPOINT_INTERVAL_S = 300
-SERVER_REQUESTS = ("update", "restart", "stop")
+SERVER_REQUESTS = ("update", "restart", "stop", "check")
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +196,12 @@ def _git(repo: Path, *args: str, timeout: int = 60) -> tuple[int, str]:
     if git is None:
         return 127, "git is not installed"
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    # Never wait for a login prompt (terminal or Git Credential Manager window): a check
+    # at start-up must fail fast instead.
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
     try:
         done = subprocess.run([git, "-C", str(repo), *args], capture_output=True, text=True,
-                              timeout=timeout, creationflags=flags)
+                              timeout=timeout, creationflags=flags, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
     return done.returncode, (done.stdout + done.stderr).strip()
@@ -220,7 +223,7 @@ class RepoStatus:
         return self.path is not None and self.git
 
 
-def repo_status(check_remote: bool = False) -> RepoStatus:
+def repo_status(check_remote: bool = False, fetch_timeout: int = 60) -> RepoStatus:
     path = repo_root()
     status = RepoStatus(path=path, git=git_executable() is not None)
     if path is None or not status.git:
@@ -231,7 +234,7 @@ def repo_status(check_remote: bool = False) -> RepoStatus:
     code, out = _git(path, "status", "--porcelain", "--untracked-files=no")
     status.dirty = code == 0 and bool(out)
     if check_remote:
-        code, out = _git(path, "fetch", "--quiet", "origin", timeout=60)
+        code, out = _git(path, "fetch", "--quiet", "origin", timeout=fetch_timeout)
         if code != 0:
             status.error = out[-400:] or "git fetch failed"
         else:
@@ -307,3 +310,43 @@ def mirror_backup(backup_path: Path, mirror_dir: str | None, keep: int = 30) -> 
     except OSError:
         log.exception("Couldn't copy the backup to %s", target_dir)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Network addresses (shown in the footer and Settings › Program)
+# ---------------------------------------------------------------------------
+
+_addr_cache: tuple[float, list[str]] = (0.0, [])
+
+
+def local_addresses() -> list[str]:
+    """This machine's IPv4 addresses on the network (no loopback), main one first.
+
+    The main one is the address of the route to the internet (a UDP "connect" sends
+    nothing); the rest come from the host name. Cached for a minute.
+    """
+    global _addr_cache
+    import socket
+    import time
+
+    now = time.monotonic()
+    if now - _addr_cache[0] < 60:
+        return _addr_cache[1]
+    found: list[str] = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 53))  # UDP connect only picks a route: nothing is sent
+            found.append(sock.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.append(info[4][0])
+    except OSError:
+        pass
+    result = []
+    for ip in found:
+        if ip and not ip.startswith("127.") and ip != "0.0.0.0" and ip not in result:
+            result.append(ip)
+    _addr_cache = (now, result)
+    return result

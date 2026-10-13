@@ -92,8 +92,15 @@ def create_app(database: Database, paths: Paths, mode: str = "desktop",
 
     @app.context_processor
     def inject_per_request():
+        from shacklog.services import system, updates
+
+        addresses = system.local_addresses()
+        update = updates.read_status(paths.data_dir)
         return {
             "instance_name": database.instance_name,
+            "instance_ip": addresses[0] if addresses else None,
+            "instance_port": request.host.rpartition(":")[2] if ":" in request.host else "",
+            "update_available": bool(update.get("behind")),
             "mode": mode,
             "login_enabled": auth.login_required_now(),
             "sync_status": app.config["SYNC_STATUS"],

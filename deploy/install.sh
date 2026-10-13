@@ -107,7 +107,8 @@ if [ -n "${SHACKLOG_RESTORE:-}" ]; then
   fi
 fi
 
-for f in shacklog.service shacklog-control.path shacklog-control.service; do
+for f in shacklog.service shacklog-control.path shacklog-control.service \
+         shacklog-update-check.service shacklog-update-check.timer; do
   install -m 0644 "$APP_DIR/deploy/systemd/$f" "/etc/systemd/system/$f"
 done
 chmod 0755 "$APP_DIR/deploy/shacklog-ctl" "$APP_DIR/deploy/uninstall.sh"
@@ -121,6 +122,7 @@ if [ -n "${SHACKLOG_PASSWORD:-}" ]; then
 fi
 
 systemctl enable --quiet --now shacklog-control.path
+systemctl enable --quiet --now shacklog-update-check.timer   # looks for updates every 6 h
 systemctl enable --quiet shacklog
 systemctl restart shacklog
 info "Waiting for ShackLog to answer…"
@@ -135,4 +137,4 @@ IP=$(hostname -I | awk '{print $1}')
 ok "ShackLog is running at ${GN}http://$IP:$PORT/${CL}"
 CODE=$(journalctl -u shacklog --no-pager -n 100 | grep -o 'setup code [0-9-]*' | tail -1 | awk '{print $3}' || true)
 [ -n "$CODE" ] && echo -e "   First visit: enter setup code ${GN}$CODE${CL} and choose a password."
-echo "   Manage it with: shacklog-ctl status | update | restart | logs | backup"
+echo "   Manage it with: shacklog-ctl status | check | update | restart | logs | backup"

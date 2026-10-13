@@ -1,0 +1,10 @@
+# Checks GitHub for a newer ShackLog (and installs it if "Install updates automatically"
+# is on in Settings › Program & updates). Started by shacklog-update-check.timer.
+[Unit]
+Description=ShackLog update check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/shacklog-ctl check --quiet

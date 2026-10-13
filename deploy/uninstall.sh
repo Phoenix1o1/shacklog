@@ -74,7 +74,7 @@ fi
 # ------------------------------------------------------------------ stop and archive
 if [ "$HAS_SERVICE" = 1 ]; then
   info "Stopping the service…"
-  systemctl disable --now shacklog-control.path shacklog.service >/dev/null 2>&1 || true
+  systemctl disable --now shacklog-control.path shacklog-update-check.timer shacklog.service >/dev/null 2>&1 || true
 fi
 [ "$HAS_DOCKER" = 1 ] && { info "Stopping the Docker container…"; docker stop shacklog >/dev/null 2>&1 || true; }
 
@@ -88,7 +88,8 @@ if [ "$KEEP" = 1 ]; then
 fi
 
 # ------------------------------------------------------------------ remove the program
-for f in shacklog.service shacklog-control.path shacklog-control.service; do
+for f in shacklog.service shacklog-control.path shacklog-control.service \
+         shacklog-update-check.service shacklog-update-check.timer; do
   rm -f "/etc/systemd/system/$f"
 done
 [ "$HAS_SERVICE" = 1 ] && systemctl daemon-reload

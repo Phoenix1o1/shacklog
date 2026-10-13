@@ -82,6 +82,7 @@ From the host: `pct enter <ID>`, then:
 | Command | What it does |
 |---|---|
 | `shacklog-ctl status` | Service state, version and commit, address, data size |
+| `shacklog-ctl check` | Looks for updates on GitHub and shows them in the web page; installs them if *Install updates automatically* is on. Runs by itself 10 min after boot and every 6 h (`shacklog-update-check.timer`). |
 | `shacklog-ctl update` | `git pull`, reinstall packages, restart. Backs up the database first and **rolls back by itself** if the new version doesn't start. |
 | `shacklog-ctl restart` / `stop` / `start` | |
 | `shacklog-ctl logs` (`-f` to follow) | |
@@ -91,9 +92,13 @@ From the host: `pct enter <ID>`, then:
 | `shacklog-ctl cli info` | Any ShackLog command, run as the service user |
 | `shacklog-ctl uninstall` | Removes ShackLog from the container (asks about the data) |
 
-The same **Update and restart**, **Restart** and **Stop server** buttons are in the web
-interface: *Settings › Program & updates*. They hand the request to `shacklog-ctl`
+The same **Check now**, **Update and restart**, **Restart** and **Stop server** buttons
+are in the web interface: *Settings › Program & updates*, together with the
+**Install updates automatically** switch. They hand the request to `shacklog-ctl`
 through a systemd path unit, because the web service itself runs unprivileged.
+
+**Already installed before 1.1.0?** Run `shacklog-ctl update` once: it installs and
+enables the update-check timer. (`systemctl list-timers shacklog*` shows it.)
 
 ## Backups
 

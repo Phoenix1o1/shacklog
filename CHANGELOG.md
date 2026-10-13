@@ -15,6 +15,14 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   again just reopens the browser.
 - **Start when I sign in** for Windows, Linux and macOS (also in *Settings › Program &
   updates*).
+- **Automatic updates.** PC: at every start, if online, ShackLog checks GitHub and
+  updates itself before opening (tests + rebuild; a failed update isn't retried for 12 h);
+  while running it checks every 6 h and shows *Update available*. Hub: a systemd timer
+  runs `shacklog-ctl check` after boot and every 6 h; updates are shown in the web page and
+  installed automatically (with rollback) if you turn that on. Both under *Settings ›
+  Program & updates*.
+- **Instance name and IP address** at the top of the side menu and in the footer, and a
+  *This instance* panel (addresses, port, id, the address to use from a phone).
 - **Help** in the app: user guide, credits and licences (including OFFgrid-SDR).
 - New app icon (tray, executable, browser tab).
 

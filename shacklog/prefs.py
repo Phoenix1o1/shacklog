@@ -31,6 +31,8 @@ DEFAULTS: dict[str, object] = {
     "last_backup_date": None,
     "backup_mirror_dir": None,  # second folder for backup copies (OneDrive, NAS share…)
     "backup_mirror_keep": 30,
+    # --- updates (desktop; the hub uses the control/auto-update flag file) ---
+    "auto_update": True,  # check GitHub at start and update before opening
     # --- OFFgrid-SDR (desktop) ---
     "offgrid_sdr_path": None,  # full path of OFFgrid-SDR's index.html; None = auto-detect
 }

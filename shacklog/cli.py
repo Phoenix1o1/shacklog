@@ -184,14 +184,22 @@ def make_shutdown(cleanup, exit_code: int = 0):
     return shutdown
 
 
-def prepare_run(db: Database, worker, paths: Paths | None = None):
+def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates: bool = False):
     """Checkpoint now and every few minutes, and on every way the process can end.
-    With ``paths``, the daily backup is also checked every hour while running."""
-    from shacklog.services import system
+    With ``paths``, the daily backup is also checked every hour while running, and with
+    ``check_updates`` (desktop) GitHub is checked every 6 hours for the "update" badge."""
+    from shacklog.services import system, updates
+
+    hours = [0]
+
+    def hourly() -> None:
+        daily_backup(db, paths)
+        hours[0] += 1
+        if check_updates and hours[0] % 6 == 0:
+            updates.check_now(paths.data_dir)
 
     system.checkpoint(db)
-    system.start_checkpoint_timer(
-        db, hourly=(lambda: daily_backup(db, paths)) if paths is not None else None)
+    system.start_checkpoint_timer(db, hourly=hourly if paths is not None else None)
     cleanup = make_cleanup(worker, db)
     system.on_exit(cleanup)
     return cleanup
@@ -221,6 +229,15 @@ def cmd_desktop(args) -> int:
         if not args.no_browser:
             webbrowser.open(url)
         return 0
+    from shacklog.services import updates
+
+    with db.transaction() as s:
+        auto_update = bool(get_setting(s, "auto_update", True))
+    if updates.update_at_launch(paths.data_dir, auto_update):
+        # The update helper waits for this process to exit, rebuilds and starts again.
+        print(f"Updating {APP_NAME} from GitHub before starting…")
+        db.dispose()
+        return 0
     if not port_is_free(host, port):
         port = free_port_near(host, port + 1)
         url = f"http://{host}:{port}/"
@@ -230,7 +247,7 @@ def cmd_desktop(args) -> int:
 
     app = create_app(db, paths, mode="desktop")
     worker = None if args.no_sync else start_sync_worker(app)
-    cleanup = prepare_run(db, worker, paths)
+    cleanup = prepare_run(db, worker, paths, check_updates=True)
     app.config["SHUTDOWN"] = make_shutdown(cleanup)
     app.config["SYNC_WORKER"] = worker
 

@@ -15,7 +15,9 @@ your phone can browse.
 - **Log QSO** (top bar) is always one click away.
 - **☾ / ☀** (top right) switches between the dark theme (default, easy on the eyes at
   night) and the light "paper ledger" theme. The choice is remembered per browser.
-- The footer shows the version, the sync state and the **UTC clock**.
+- The **card at the top of the side menu** shows which instance you're on (its name, IP
+  address and port, PC or hub) and *Update available* when there is one. The footer
+  repeats the name and address, with the sync state and the **UTC clock**.
 
 ## Logs
 
@@ -149,11 +151,21 @@ On Linux and macOS ShackLog runs in the terminal you started it from.
 
 ## Updating
 
-- **PC with a git copy**: *Settings › Program & updates › Update now*. ShackLog closes,
-  pulls the latest version from GitHub, runs the tests, rebuilds `ShackLog.exe` and starts
-  again. If anything fails the previous version starts instead. Your data isn't touched.
-- **Proxmox hub**: the same page (*Update and restart*), or `shacklog-ctl update` in the
-  container. A failed update rolls back.
+ShackLog keeps itself up to date from GitHub. *Settings › Program & updates* shows the
+version, the last check and what's new.
+
+- **PC with a git copy**: at every start, if the computer is online, ShackLog checks
+  GitHub and, when there's something new, updates itself before opening: a window shows
+  it pulling, running the tests and rebuilding `ShackLog.exe`, then ShackLog starts. If
+  anything fails the previous version starts instead, and that update isn't retried for
+  12 hours. While running it checks every 6 hours and shows **Update available** in the
+  side menu. **Update now** updates immediately; automatic updates can be turned off on
+  the same page. Your data isn't touched.
+- **Proxmox hub**: a timer checks GitHub a few minutes after the container starts and
+  every 6 hours. New versions show up as **Update available**; **Update and restart**
+  installs them (backup first, automatic rollback if the new version doesn't start).
+  Turn on **Install updates automatically** to let the timer do it. From the container:
+  `shacklog-ctl check` and `shacklog-ctl update`.
 
 ## Commands
 

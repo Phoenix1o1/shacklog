@@ -7,6 +7,27 @@
 
 <div class="settings-grid">
   <div>
+    <section class="panel" id="instance">
+      <h2>This instance</h2>
+      {% set port = request.host.rpartition(':')[2] if ':' in request.host else '' %}
+      {{ facts([
+        ('Name', instance_name),
+        ('Role', 'Hub (server mode)' if not desktop else 'This PC (desktop mode)'),
+        ('IP address' ~ ('es' if addresses|length > 1 else ''), (addresses|join(', ')) or 'no network'),
+        ('Port', port or '—'),
+        ('Instance id', instance_id),
+      ]) }}
+      {% if desktop %}
+      <p class="small muted">On a PC {{ app_name }} only answers this computer
+        (<code>{{ request.host_url }}</code>): other devices use the hub. The name is set in
+        <a href="{{ url_for('settings.index') }}">Settings › General</a>.</p>
+      {% elif addresses %}
+      <p class="small">Open it from a phone or another PC at
+        <code>http://{{ addresses[0] }}{% if port %}:{{ port }}{% endif %}/</code>, and use the same
+        address as the hub address in <a href="{{ url_for('settings.sync') }}">Sync</a> on each PC.</p>
+      {% endif %}
+    </section>
+
     <section class="panel" id="data-folder">
       <h2>Your data</h2>
       <p>Everything {{ app_name }} stores is in one folder: the database, the library files
@@ -82,21 +103,42 @@
   <aside>
     <section class="panel" id="update">
       <h2>Updates</h2>
+      {% set u = update_info %}
+      {% if u.get('behind') %}
+      <div class="flash flash-warn">
+        <p><b>{{ u.behind }} new change{{ 's' if u.behind != 1 else '' }}</b> on GitHub
+          ({{ u.get('current') }} → {{ u.get('latest') }}).</p>
+        {% if u.get('log') %}<ul class="small update-log">{% for line in u.log[:10] %}<li><code>{{ line[:7] }}</code> {{ line[8:] }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      {% elif u.get('behind') == 0 %}
+      <p class="small">Up to date.</p>
+      {% endif %}
+      {% if u.get('error') %}<p class="small muted">Last check: {{ u.error }}</p>{% endif %}
       {% if status.path and status.git %}
         {{ facts([
           ('Version', app_name ~ ' ' ~ version),
           ('Git commit', status.commit ~ (' · ' ~ status.commit_date if status.commit_date else '')),
           ('Branch', status.branch),
-          ('Folder', status.path|string),
+          ('Last checked', (u.get('checked_at', '')|replace('T', ' ')|replace('Z', ' UTC')) or 'never'),
         ]) }}
-        {% if status.dirty %}<p class="flash flash-warn">Files in this copy were changed by hand. The update keeps them if git can; otherwise it stops and tells you.</p>{% endif %}
-        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="check_update">
-          <button class="btn">Check for updates</button></form>
+        {% if status.dirty %}<p class="flash flash-warn">Files in this copy were changed by hand. Automatic updates are skipped until that's sorted out (<code>git status</code>).</p>{% endif %}
         {% if desktop %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="check_update">
+          <button class="btn">Check now</button></form>
         <form method="post" class="inline-form" onsubmit="return confirm('Update now? {{ app_name }} closes, downloads the latest version from GitHub, rebuilds itself and starts again.');">
           {{ csrf() }}<input type="hidden" name="action" value="update">
           <button class="btn btn-primary">Update now</button></form>
-        <p class="small muted">Runs <code>packaging\update_windows.bat</code>: git pull, rebuild, restart. Your data folder isn't touched.</p>
+        <p class="small muted">Runs <code>packaging\update_windows.bat</code>: git pull, tests, rebuild, restart. Your data folder isn't touched.</p>
+        <h3 class="settings-sub">Automatic updates</h3>
+        <p class="small">{% if auto_update %}<b>On.</b> At every start, if the computer is online,
+          {{ app_name }} checks GitHub and updates itself before opening (a window shows the
+          progress). If an update fails, the current version starts and that update isn't
+          retried for 12 hours.{% else %}<b>Off.</b> {{ app_name }} still checks every 6 hours
+          while running and shows <i>Update available</i>, but only updates when you press
+          the button.{% endif %}</p>
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="auto_update">
+          <input type="hidden" name="enabled" value="{{ '0' if auto_update else '1' }}">
+          <button class="btn">{{ 'Turn off automatic updates' if auto_update else 'Update automatically at start' }}</button></form>
         {% endif %}
       {% elif status.path and not status.git %}
         <p>This copy comes from GitHub, but <b>git isn't installed</b> on this computer.
@@ -111,6 +153,17 @@
       {% if control %}
       <p class="small">These ask Proxmox (the <code>shacklog-ctl</code> helper) to act. Same as
          running <code>shacklog-ctl update|restart|stop</code> in the container.</p>
+      <p class="small">A timer checks GitHub a few minutes after the container starts and every
+         6 hours.
+         {% if auto_update %}<b>Automatic install is on:</b> updates are installed when found,
+         with a backup first and a rollback if the new version doesn't start.
+         {% else %}Updates found are shown here; install them with the button.{% endif %}</p>
+      <div class="quick-actions">
+        <form method="post">{{ csrf() }}<input type="hidden" name="action" value="check"><button class="btn">Check now</button></form>
+        <form method="post">{{ csrf() }}<input type="hidden" name="action" value="auto_update">
+          <input type="hidden" name="enabled" value="{{ '0' if auto_update else '1' }}">
+          <button class="btn">{{ 'Turn off automatic install' if auto_update else 'Install updates automatically' }}</button></form>
+      </div>
       <div class="quick-actions">
         <form method="post" onsubmit="return confirm('Pull the latest version from GitHub, reinstall and restart?');">
           {{ csrf() }}<input type="hidden" name="action" value="update"><button class="btn btn-primary">Update and restart</button></form>

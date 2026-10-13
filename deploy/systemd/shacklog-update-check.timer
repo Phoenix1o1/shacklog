@@ -1,0 +1,12 @@
+# A few minutes after boot, then every 6 hours (spread out a little).
+[Unit]
+Description=Check for ShackLog updates every 6 hours
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

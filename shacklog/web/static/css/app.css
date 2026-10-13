@@ -632,3 +632,18 @@ code.path, .facts dd { overflow-wrap: anywhere; }
   border: 1px solid var(--rule-strong); color: var(--ink); font-size: 1.1rem;
 }
 .sidenav .sidenav-head a.icon-btn:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+/* ---------- instance card (top of the side menu): name, address, update badge ---------- */
+.sidenav a.instance-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .1rem;
+  margin: 0 0 1rem; padding: .55rem .7rem; border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--accent); border-radius: var(--radius-btn); background: var(--surface);
+}
+.sidenav a.instance-card:hover { border-color: var(--accent); background: var(--surface); }
+.instance-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
+.instance-addr { font-size: var(--step--1); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.instance-update { margin-top: .25rem; font-size: .75rem; font-weight: 700; padding: .05rem .5rem;
+  border-radius: 999px; background: var(--amber); color: #1b1300; }
+.update-log { margin: .4rem 0 0; padding-left: 1.1rem; }
+.update-log li { margin: .1rem 0; }
+.quick-actions + .quick-actions { margin-top: .5rem; }
