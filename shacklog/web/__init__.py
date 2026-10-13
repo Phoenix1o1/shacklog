@@ -71,6 +71,9 @@ def create_app(database: Database, paths: Paths, mode: str = "desktop",
         SYNC_STATUS={},  # filled by the sync worker, shown in the footer
     )
 
+    from shacklog.services import cty
+
+    cty.configure(paths.data_dir)  # country lookups read this data folder's country list
     h.register_template_helpers(app)
     app.teardown_appcontext(h.close_session)
     app.register_blueprint(auth.bp)

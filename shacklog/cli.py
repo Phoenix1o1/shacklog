@@ -94,6 +94,19 @@ def daily_backup(db: Database, paths: Paths) -> None:
         log.exception("Daily backup failed")
 
 
+def refresh_country_list(db: Database, paths: Paths) -> None:
+    """Download the country list when it is missing or a month old (best effort)."""
+    from shacklog.services import cty
+
+    try:
+        with db.transaction() as s:
+            wanted = bool(get_setting(s, "cty_auto_update", True))
+        if wanted:
+            cty.update_if_due(paths.data_dir)
+    except Exception:  # never let reference data stop the logbook
+        log.exception("Country list update failed")
+
+
 def port_is_free(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET) as sock:
         if os.name != "nt":
@@ -186,7 +199,8 @@ def make_shutdown(cleanup, exit_code: int = 0):
 
 def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates: bool = False):
     """Checkpoint now and every few minutes, and on every way the process can end.
-    With ``paths``, the daily backup is also checked every hour while running, and with
+    With ``paths``, the daily backup and the country list are also checked every hour
+    while running, and with
     ``check_updates`` (desktop) GitHub is checked every 6 hours for the "update" badge."""
     from shacklog.services import system, updates
 
@@ -194,12 +208,16 @@ def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates:
 
     def hourly() -> None:
         daily_backup(db, paths)
+        refresh_country_list(db, paths)
         hours[0] += 1
         if check_updates and hours[0] % 6 == 0:
             updates.check_now(paths.data_dir)
 
     system.checkpoint(db)
     system.start_checkpoint_timer(db, hourly=hourly if paths is not None else None)
+    if paths is not None:  # in the background: offline or slow, the start isn't held up
+        threading.Thread(target=refresh_country_list, args=(db, paths),
+                         name="shacklog-cty", daemon=True).start()
     cleanup = make_cleanup(worker, db)
     system.on_exit(cleanup)
     return cleanup

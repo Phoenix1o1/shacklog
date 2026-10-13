@@ -36,7 +36,7 @@ from flask import (
     send_file,
     url_for,
 )
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import func, literal, or_, select, union_all
 
 from shacklog import APP_NAME, __version__, migrations
 from shacklog.models import (
@@ -45,6 +45,7 @@ from shacklog.models import (
     TABLES,
     ImportLog,
     Link,
+    Qso,
     SyncConflict,
     SyncPeer,
 )
@@ -311,6 +312,9 @@ def data():
             result = _import_local_path(request.form.get("path", ""))
             if result is not None:
                 return result
+        elif action.startswith("cty_"):
+            _country_action(action)
+            return redirect(url_for(".data") + "#countries")
         else:
             abort(400, description="Unknown action.")
         return redirect(url_for(".data"))
@@ -322,12 +326,70 @@ def data():
         except ValueError:
             summary = {}
         history.append((entry, summary if isinstance(summary, dict) else {}))
+    from shacklog.services import cty
+
+    missing = (h.live(Qso).filter(or_(Qso.country.is_(None), Qso.country == "")).count())
     return render_template(
         "settings/data.html", backups=backup.list_backups(_paths().backups), history=history,
+        cty_info=cty.info(_paths().data_dir), cty_url=cty.SOURCE_URL,
+        cty_auto=bool(h.setting("cty_auto_update")), qsos_without_country=missing,
         desktop=current_app.config["MODE"] == "desktop", local_bundles=_local_bundles(),
         backups_dir=str(_paths().backups),
         keep_daily=h.setting("backup_keep_daily"), keep_other=h.setting("backup_keep_import"),
     )
+
+
+def _country_action(action: str) -> None:
+    """Settings › Data › Countries: get the list, or fill in the QSOs that lack one."""
+    from shacklog.services import backup, cty
+
+    data_dir = _paths().data_dir
+    if action == "cty_download":
+        try:
+            table = cty.download(data_dir)
+        except Exception as exc:  # offline, site down, not a country file
+            flash(f"Couldn't download the country list ({exc}). Download cty.csv from "
+                  f"{cty.SOURCE_URL} on another computer and upload it here.", "error")
+            return
+        flash(f"Downloaded the country list: {len(table)} countries"
+              f"{', version ' + table.version if table.version else ''}.", "ok")
+    elif action == "cty_upload":
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            flash("Choose a cty.csv or cty.dat file first.", "error")
+            return
+        try:
+            table = cty.install(data_dir, upload.read(cty.MAX_SIZE + 1), upload.filename)
+        except ValueError as exc:
+            flash(f"That isn't a country list: {exc}", "error")
+            return
+        flash(f"Installed the country list: {len(table)} countries.", "ok")
+    elif action == "cty_fill":
+        if cty.load(data_dir) is None:
+            flash("Download the country list first.", "error")
+            return
+        backup.create_backup(_db(), _paths().backups, reason="before-country-fill")
+        s = h.session()
+        filled = unknown = 0
+        for qso in h.live(Qso).filter(or_(Qso.country.is_(None), Qso.country == "")).all():
+            entity = cty.lookup(qso.call)
+            if entity is None:
+                unknown += 1
+            else:
+                qso.country = entity.name
+                filled += 1
+        s.commit()
+        flash(f"Filled in the country of {filled} QSO{'s' if filled != 1 else ''}"
+              + (f"; {unknown} callsign{'s' if unknown != 1 else ''} matched no country." if unknown
+                 else ".") + " A backup was made first.", "ok")
+    elif action == "cty_auto":
+        want = request.form.get("enabled") == "1"
+        h.save_setting("cty_auto_update", want)
+        h.session().commit()
+        flash("The country list will " + ("be downloaded again every month." if want
+                                          else "only change when you download or upload it."), "ok")
+    else:
+        abort(400, description="Unknown action.")
 
 
 def _export_bundle():

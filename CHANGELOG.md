@@ -5,6 +5,14 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
 
 ## Unreleased
 
+**New**
+- **Countries.** The callsign box shows the country, continent, CQ/ITU zones, DXCC
+  number and beam heading from your station, and says *New country*. New QSOs get their
+  country filled in, *Settings › Import, export & backups › Countries* fills in older
+  ones, and *Statistics* counts countries worked. The list is AD1C's `cty.csv` from
+  country-files.com, downloaded when missing or a month old (or uploaded by hand). No
+  database change: the hub and the PCs keep syncing whichever version they run.
+
 **Fixed** (review of the Windows background mode and automatic updates)
 - An update that changed the update script itself could derail it: Windows (and bash)
   read a script from disk while running it. The PC now runs a copy of the script from

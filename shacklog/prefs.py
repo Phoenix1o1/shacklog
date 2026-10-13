@@ -33,6 +33,8 @@ DEFAULTS: dict[str, object] = {
     "backup_mirror_keep": 30,
     # --- updates (desktop; the hub uses the control/auto-update flag file) ---
     "auto_update": True,  # check GitHub at start and update before opening
+    # --- country list (services/cty.py) ---
+    "cty_auto_update": True,  # download AD1C's list when missing or a month old
     # --- OFFgrid-SDR (desktop) ---
     "offgrid_sdr_path": None,  # full path of OFFgrid-SDR's index.html; None = auto-detect
 }

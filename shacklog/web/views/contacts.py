@@ -315,6 +315,6 @@ def callsign_page(call: str, card: Contact | None):
     latest = qsos[0] if qsos else None
     return render_template(
         "contacts/callsign.html", call=call, card=card, qsos=qsos, heard=heard,
-        repeaters=repeaters, stats=stats, latest=latest,
+        repeaters=repeaters, stats=stats, latest=latest, country=h.country_of(call),
         linked=links_for(s, "contact", card.id) if card else [],
     )

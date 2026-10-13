@@ -311,8 +311,12 @@ def check_call():
     last = q.order_by(Qso.time_on.desc()).first()
     heard = h.live(SwlEntry).filter(func.upper(SwlEntry.heard) == call).count()
     contact = h.live(Contact).filter(Contact.callsign == call).first()
+    country = h.country_of(call)
+    new_country = bool(country) and not h.live(Qso).filter(
+        Qso.country == country["entity"].name).count()
     return render_template("qsos/_call_hint.html", call=call, count=count, last=last,
-                           heard=heard, contact=contact)
+                           heard=heard, contact=contact, country=country,
+                           new_country=new_country)
 
 
 # ---------------------------------------------------------------------------

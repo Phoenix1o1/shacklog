@@ -32,6 +32,11 @@
 {% endmacro %}
 
 {# Definition list of label/value pairs; empty values are skipped. #}
+{% macro country_line(country) %}
+{# country = helpers.country_of(call): name, continent, zones, beam heading from my station #}
+{% if country %}<span class="country-line">{{ country.entity.label }}{% if country.entity.dxcc %} · DXCC {{ country.entity.dxcc }}{% endif %}{% if country.bearing is not none %} · beam {{ country.bearing|bearing }}, {{ country.km|km }}{% endif %}</span>{% endif %}
+{% endmacro %}
+
 {% macro facts(pairs) %}
 <dl class="facts">
   {% for label, value in pairs if value not in (None, '', []) %}

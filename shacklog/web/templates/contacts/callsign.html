@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head, country_line %}
 {% block title %}{{ call }}{% endblock %}
 {% block content %}
 {% call page_head(call, ([card.name if card else (latest.name if latest else None), card.qth if card and card.qth else (latest.qth if latest else None)]|select|join(' · ')) or None) %}
@@ -11,6 +11,8 @@
   {% endif %}
   <a class="btn btn-quiet" href="{{ url_for('search.index', q=call) }}">Search everywhere</a>
 {% endcall %}
+
+{% if country %}<p class="muted">{{ country_line(country) }}</p>{% endif %}
 
 <div class="detail-grid">
   <div>

@@ -44,6 +44,7 @@
   <ul class="tally">
     <li><b>{{ total_qsos }}</b><span>QSOs</span></li>
     <li><b>{{ unique_calls }}</b><span>different callsigns worked</span></li>
+    {% if countries %}<li><b>{{ countries }}</b><span>countries worked</span></li>{% endif %}
     <li><b>{{ total_swl }}</b><span>listening entries</span></li>
     <li><b>{{ swl_unique }}</b><span>different things heard</span></li>
   </ul>
@@ -71,6 +72,13 @@
     <h2>QSOs per month, last {{ months }} months</h2>
     {{ bar_list(by_month, 'months') }}
   </section>
+
+  {% if by_country %}
+  <section class="panel">
+    <h2>QSOs by country{% if countries > by_country|length %} (top {{ by_country|length }}){% endif %}</h2>
+    {{ bar_list(by_country) }}
+  </section>
+  {% endif %}
 
   {% if not year %}
   <section class="panel">

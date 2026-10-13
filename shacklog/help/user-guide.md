@@ -29,6 +29,19 @@ your phone can browse.
 
 Dates and times are **UTC**. Fields marked with *Now (UTC)* fill in the current time.
 
+### Countries
+
+With the country list installed (*Settings › Import, export & backups › Countries*),
+typing a callsign shows its country, continent, CQ and ITU zones, DXCC number and the
+beam heading and distance from your default station, and says **New country** the
+first time. New QSOs get their country filled in (a country you type, or one in an
+imported ADIF file, is kept). *Fill in missing countries* does the same for QSOs logged
+before. *Statistics* counts the countries worked.
+
+The list is AD1C's (country-files.com). ShackLog downloads it by itself when it's
+missing or a month old; offline, download `cty.csv` elsewhere and upload it there.
+Each PC and the hub keep their own copy.
+
 ### Finding things
 
 Every list has a filter bar:

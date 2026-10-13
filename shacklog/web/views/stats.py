@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, url_for
 from sqlalchemy import func
 
 from shacklog.models import (
@@ -29,6 +29,7 @@ bp = Blueprint("stats", __name__, url_prefix="/stats")
 
 TOP_CALLS = 20
 TOP_REPEATERS = 15
+TOP_COUNTRIES = 25
 MONTHS = 24
 
 
@@ -140,6 +141,11 @@ def index():
 
     top_calls = grouped(qsub.c.call, limit=TOP_CALLS)
 
+    # Countries (filled in from the callsign when the country list is installed).
+    country_col = func.nullif(func.trim(qsub.c.country), "")
+    countries = s.query(func.count(func.distinct(country_col))).scalar() or 0
+    by_country = [(c, n) for c, n in grouped(country_col, limit=TOP_COUNTRIES) if c]
+
     # ODX: the longest QSO per band. A window function picks one row per band.
     rank = func.row_number().over(partition_by=qsub.c.band,
                                   order_by=(qsub.c.distance_km.desc(), qsub.c.time_on)).label("rk")
@@ -173,6 +179,8 @@ def index():
         "stats/index.html",
         year=year, station=station, years=_years(s), stations=h.station_choices(s),
         total_qsos=total_qsos, total_swl=total_swl, unique_calls=unique_calls,
+        countries=countries,
+        by_country=bars(by_country, lambda c: url_for("qsos.index", country=c)),
         swl_unique=swl_unique,
         by_band=bars(by_band), by_mode=bars(by_mode), by_year=bars(by_year),
         by_month=bars(by_month), top_calls=top_calls, odx=odx,

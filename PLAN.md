@@ -167,6 +167,7 @@ shacklog/
   models.py            all ORM models, SyncMixin, SYNC_ORDER, choice lists
   services/
     geo.py             Maidenhead ↔ lat/lon, distance, bearing, bbox, position parsing
+    cty.py             callsign → country/DXCC/zones (AD1C country list, local file)
     bands.py           frequency → band, modes/submodes, default RST, service hints
     adif.py            ADI parser/writer + ADIF ↔ QSO field mapping
     chirp.py           CHIRP CSV read/write, repeater ↔ channel, channel diff
@@ -226,7 +227,9 @@ Duplicates), dark "night" theme by default with a light switch, persistent side 
 help (user guide, credits), re-import of a newer bundle from the same source without
 spurious conflicts.
 
-**Phase 2**: DXCC/country from `cty.dat` · callbook lookup (QRZ/HamQTH) with cache ·
+**Phase 2** (in progress): ~~DXCC/country from `cty.dat`~~ (done: `services/cty.py`,
+reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
+callbook lookup (QRZ/HamQTH) with cache ·
 QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers
 (RepeaterBook, IK2ANE-style CSV) · photo thumbnails.
 
