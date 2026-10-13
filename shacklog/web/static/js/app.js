@@ -56,6 +56,16 @@
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") setNav(false); });
 
+  // A "tick all" box ticks or unticks every checkbox named by data-check-all in its form.
+  document.querySelectorAll("[data-check-all]").forEach(function (all) {
+    all.addEventListener("change", function () {
+      var name = all.getAttribute("data-check-all");
+      all.form.querySelectorAll('input[type=checkbox][name="' + name + '"]').forEach(function (box) {
+        box.checked = all.checked;
+      });
+    });
+  });
+
   // Dark / light theme.
   var themeBtn = document.querySelector("[data-theme-toggle]");
   if (themeBtn) themeBtn.addEventListener("click", function () {

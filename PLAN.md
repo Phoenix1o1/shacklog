@@ -232,7 +232,8 @@ spurious conflicts.
 **Phase 2** (in progress): ~~DXCC/country from `cty.dat`~~ (done: `services/cty.py`,
 reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
 callbook lookup (QRZ/HamQTH) with cache ·
-QSL card workflow · ~~offline map tiles~~ (done: `services/tiles.py`, `/map/tiles/…`:
+~~QSL card workflow~~ (done: `services/qsl.py` + `views/qsl.py`, ADIF date/route fields
+in `extra_adif`, labels) · ~~offline map tiles~~ (done: `services/tiles.py`, `/map/tiles/…`:
 MBTiles → cache → tile server; no bulk download, per OSM policy) · ADX (XML ADIF) · repeater list importers
 (~~RepeaterBook, IK2ANE-style CSV~~ done: `services/repeater_lists.py`, header guessing
 + editable mapping) · photo thumbnails.

@@ -29,6 +29,21 @@ your phone can browse.
 
 Dates and times are **UTC**. Fields marked with *Now (UTC)* fill in the current time.
 
+### QSL cards
+
+*QSL cards* (side menu) follows paper cards:
+
+1. **To send**: QSOs whose *QSL sent* is *Requested* or *Queued*. Tick them, **Print
+   labels** (A4 sheets of 3 × 7 labels, 70 × 42 mm; up to four QSOs per label, routed
+   to the QSL manager when there is one), then **Mark as sent** with the date and route
+   (bureau, direct…).
+2. **Waiting for a card**: sent, not yet confirmed.
+3. **A card arrived**: type the callsign, tick the QSOs on the card, **Mark as received**.
+   Add scans of the front and back: they go to the library, linked to those QSOs.
+
+Dates and routes are saved as the ADIF fields `QSLSDATE`, `QSLRDATE`, `QSL_SENT_VIA` and
+`QSL_RCVD_VIA`, so they come out in ADIF exports and come in with imports.
+
 ### Countries
 
 With the country list installed (*Settings › Import, export & backups › Countries*),

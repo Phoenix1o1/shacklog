@@ -32,7 +32,7 @@
   {# One navigation for every screen size: a sidebar on wide screens, a drawer on phones. #}
   {% set section = request.endpoint.split('.')[0] if request.endpoint else '' %}
   {% set nav = [
-    ('Logbook', [('main.dashboard', 'Dashboard'), ('qsos.index', 'QSOs'), ('swl.index', 'Listening log'), ('journal.index', 'Journal')]),
+    ('Logbook', [('main.dashboard', 'Dashboard'), ('qsos.index', 'QSOs'), ('qsl.index', 'QSL cards'), ('swl.index', 'Listening log'), ('journal.index', 'Journal')]),
     ('Station', [('repeaters.index', 'Repeaters'), ('radio.index', 'Radio configs'), ('stations.index', 'Stations'), ('equipment.index', 'Equipment'), ('contacts.index', 'Contacts')]),
     ('Browse', [('kb.index', 'Knowledge base'), ('files.index', 'Library'), ('sdr.index', 'SDR monitor'), ('map.index', 'Map'), ('stats.index', 'Statistics')]),
     ('This instance', [('settings.index', 'Settings'), ('settings.program', 'Program & updates'), ('settings.sync', 'Sync'), ('settings.data', 'Import, export & backups'), ('settings.duplicates', 'Duplicates'), ('help.index', 'Help')]),

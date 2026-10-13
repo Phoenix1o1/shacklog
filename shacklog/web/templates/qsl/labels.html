@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QSL labels</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+{# Printable sheet: A4, 3 × 7 labels of 70 × 42.3 mm (the common self-adhesive format). #}
+<body class="qsl-print">
+  <p class="qsl-print-help no-print">{{ labels|length }} label{{ '' if labels|length == 1 else 's' }}. Print at 100 % scale (no “fit to page”) on A4 sheets of 3 × 7 labels. <button class="btn btn-small" onclick="window.print()">Print</button></p>
+  <div class="qsl-sheet">
+  {% for label in labels %}
+    <div class="qsl-label">
+      <div class="qsl-to">To <b>{{ label.to }}</b>{% if label.via %} via <b>{{ label.via }}</b>{% endif %}</div>
+      <table>
+        <thead><tr><th>Date</th><th>UTC</th><th>Band</th><th>Mode</th><th>RST</th></tr></thead>
+        <tbody>
+        {% for q in label.qsos %}
+        <tr><td>{{ q.time_on.strftime('%d %b %Y') }}</td><td>{{ q.time_on.strftime('%H%M') }}</td><td>{{ q.band or ('%.3f'|format(q.freq_mhz) if q.freq_mhz else '') }}</td><td>{{ display_mode(q.mode, q.submode) }}</td><td>{{ q.rst_sent or '' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="qsl-from">{% if my_call %}de {{ my_call }} · {% endif %}{{ 'PSE QSL TNX' if label.qsos[0].qsl_rcvd != 'Y' else 'TNX QSL' }}</div>
+    </div>
+  {% endfor %}
+  </div>
+</body>
+</html>

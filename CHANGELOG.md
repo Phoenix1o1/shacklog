@@ -16,6 +16,10 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   RepeaterBook JSON/CSV, national and club lists, any CSV with a header line. A preview
   shows the column guessed for each field and lets you change it; repeaters already
   here are skipped; a backup is made first.
+- **QSL cards** (side menu): QSOs to send, printable address labels (A4, 3 × 7),
+  mark sent with date and route, cards waiting, and "a card arrived" with scans of the
+  card stored in the library and linked to the QSOs. Dates and routes are the ADIF
+  fields `QSLSDATE`/`QSLRDATE`/`QSL_SENT_VIA`/`QSL_RCVD_VIA`, so exports carry them.
 - **Offline map.** ShackLog serves the map tiles itself: from offline map files
   (`.mbtiles`, *Settings › Import, export & backups › Map*), from a cache of every tile
   already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With

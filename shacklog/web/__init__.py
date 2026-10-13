@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 VIEW_MODULES = [
     "main",
     "qsos",
+    "qsl",
     "swl",
     "journal",
     "repeaters",
