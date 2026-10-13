@@ -78,6 +78,7 @@ class Paths:
         control/            update status and requests between the program and the
                             hub's shacklog-ctl (which hard-codes "control" too)
         tmp/                scratch for uploads and imports, emptied at every start
+        exports/            hub only: archives made by "shacklog-ctl backup"
         secret.key          web session key        shacklog.log   the program's log
     """
 
