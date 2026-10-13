@@ -99,7 +99,8 @@ through a systemd path unit, because the web service itself runs unprivileged.
 
 Three layers, all automatic once set up:
 
-1. ShackLog backs up its database daily and before every import (`backups/` in the data
+1. ShackLog backs up its database daily (also while it keeps running) and before every
+   import or merge (`backups/` in the data
    folder, 14 dailies kept).
 2. *Settings › Program › Second copy of backups* can copy each backup to another folder
    (for the hub: a NAS share mounted in the container; on a PC: a OneDrive folder).
@@ -110,7 +111,9 @@ Three layers, all automatic once set up:
 Use your own VPN (Tailscale or WireGuard on the host) and open the same address. Do not
 forward port 8573 on the router. For a public HTTPS address, put a reverse proxy in front
 and set `SHACKLOG_ARGS=--behind-proxy` in `/etc/shacklog/shacklog.env`, then
-`shacklog-ctl restart`.
+`shacklog-ctl restart`. Only a proxy running in the container itself (127.0.0.1) is
+trusted by default; for a proxy on another machine also add
+`SHACKLOG_TRUSTED_PROXY=<its address>` to the same file.
 
 ## Why the first attempt misbehaved
 

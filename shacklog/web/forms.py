@@ -146,6 +146,10 @@ def parse_value(f: Field, raw: str | None) -> Any:
             raise FieldError("Required")
         return None
     t = f.type
+    if t == "url":
+        if not raw.lower().startswith(("http://", "https://")):
+            raise FieldError("Enter a web address starting with http:// or https://")
+        return raw
     if t == "upper":
         return raw.replace(" ", "").upper()
     if t == "locator":

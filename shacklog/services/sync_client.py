@@ -35,6 +35,7 @@ from shacklog import APP_NAME, __version__, migrations
 from shacklog.db import get_setting, set_setting
 from shacklog.models import StoredFile, SyncPeer, utcnow
 from shacklog.prefs import DEFAULTS
+from shacklog.services.filestore import is_sha256
 from shacklog.services import sync_engine
 
 log = logging.getLogger(__name__)
@@ -368,6 +369,12 @@ class SyncClient:
         if include_own:
             with self.db.transaction() as s:
                 set_setting(s, RECOVER_SETTING, None)
+        # A merge made on another instance: re-point what still refers to the merged copy
+        # here (local edits, pushed with the next sync).
+        from shacklog.services import merge
+
+        with self.db.transaction() as s:
+            merge.apply_merges(s)
 
     def _missing_blobs(self) -> list[str]:
         s = self.db.session()
@@ -380,6 +387,8 @@ class SyncClient:
 
     def download_blob(self, sha: str) -> bool:
         """Fetch one blob from the hub into the file store. False if the hub lacks it."""
+        if not is_sha256(sha):
+            return False
         path = f"{API}/blob/{sha}"
         if hasattr(self.transport, "download"):
             tmp = self.filestore.root / f".download-{sha[:16]}-{threading.get_ident()}"

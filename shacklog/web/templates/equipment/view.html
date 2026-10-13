@@ -18,7 +18,7 @@
         ('Firmware', item.firmware), ('Frequencies', item.freq_range), ('Connector', item.connector),
         ('Acquired', item.acquired_on|day), ('Price', item.price), ('Vendor', item.vendor),
       ]) }}
-      {% if item.url %}<p class="small"><a href="{{ item.url }}" rel="noopener" target="_blank">{{ item.url }}</a></p>{% endif %}
+      {% if item.url %}<p class="small"><a href="{{ item.url|safe_url }}" rel="noopener noreferrer" target="_blank">{{ item.url }}</a></p>{% endif %}
       {% if item.specs %}<h3>Specifications</h3><div class="prose">{{ item.specs|textblock }}</div>{% endif %}
       {% if item.notes %}<h3>Notes</h3><div class="prose">{{ item.notes|textblock }}</div>{% endif %}
       {{ tag_list(item.tags, 'equipment.index') }}

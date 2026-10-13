@@ -2,7 +2,7 @@
 
 Notes are Andrea's own files, but they also arrive by sync and import, so the output is
 made safe anyway: raw HTML in the source is escaped before conversion (``<`` becomes
-``&lt;``), links only keep http(s)/mailto/relative targets, and every external link opens
+``&lt;``), links only keep http(s)/mailto/relative targets, images only http(s)/relative sources, and every external link opens
 in a new tab without referrer.
 
 Uses Python-Markdown (pure Python) when installed; falls back to escaped text with
@@ -15,7 +15,8 @@ import re
 
 from markupsafe import Markup, escape
 
-_SAFE_HREF = re.compile(r'href="(?!(?:https?:|mailto:|#|/))[^"]*"', re.IGNORECASE)
+_SAFE_HREF = re.compile(r'href="(?!(?:https?:|mailto:|#|/(?!/)))[^"]*"', re.IGNORECASE)
+_SAFE_SRC = re.compile(r'src="(?!(?:https?:|/(?!/)))[^"]*"', re.IGNORECASE)
 _EXTERNAL = re.compile(r'<a href="(https?://[^"]+)"')
 
 
@@ -31,6 +32,7 @@ def render(text: str | None) -> Markup:
     html = markdown.markdown(source, extensions=["tables", "fenced_code", "sane_lists", "toc"],
                              output_format="html")
     html = _SAFE_HREF.sub('href="#"', html)
+    html = _SAFE_SRC.sub('src=""', html)  # images: web or same-site only (no data:, javascript:)
     html = _EXTERNAL.sub(r'<a href="\1" target="_blank" rel="noopener noreferrer"', html)
     return Markup(html)
 

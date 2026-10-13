@@ -275,11 +275,17 @@ def f_label(value: str | None, choices) -> str:
     return choice_label(choices, value)
 
 
+def f_safe_url(value) -> str:
+    """Only http(s) links leave the app: a synced or imported "javascript:" URL becomes "#"."""
+    text = str(value or "").strip()
+    return text if text.lower().startswith(("http://", "https://")) else "#"
+
+
 def register_template_helpers(app) -> None:
     app.jinja_env.filters.update(
         dt=f_dt, day=f_day, hm=f_time, freq=f_freq, km=f_km, bearing=f_bearing,
         filesize=f_filesize, highlight=f_highlight, textblock=f_textblock,
-        label=f_label, tags=split_tags,
+        label=f_label, tags=split_tags, safe_url=f_safe_url,
     )
     from shacklog.web.forms import section_is_open
 

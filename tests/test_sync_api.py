@@ -421,3 +421,25 @@ def test_worker_survives_errors(pair):
         assert worker._thread.is_alive()
     finally:
         worker.stop()
+
+
+def test_merge_follows_late_references_on_every_instance(pair):
+    """A QSO logged on the hub after the laptop's last pull still ends up on the kept copy."""
+    from shacklog.models import Station
+    from shacklog.services import merge
+
+    pair.sync()
+    with pair.hub.config["DB"].transaction() as s:
+        hub_home = s.query(Station).filter_by(origin_instance=pair.hub.config["DB"].instance_id,
+                                              name="Milano").one().id
+    with pair.laptop.config["DB"].transaction() as s:
+        lap_home = s.query(Station).filter_by(origin_instance=pair.laptop.config["DB"].instance_id,
+                                              name="Milano").one().id
+    late = _add_qso(pair.hub, "IK2LATE", station_id=hub_home)  # logged on the phone
+    with pair.laptop.config["DB"].transaction() as s:
+        merge.merge(s, Station, lap_home, [hub_home])
+    pair.sync()
+    pair.sync()  # the hub's re-pointing (made during the push) comes back on this one
+    for app in (pair.hub, pair.laptop):
+        assert _get(app, Qso, late).station_id == lap_home
+        assert _get(app, Station, hub_home).deleted_at is not None

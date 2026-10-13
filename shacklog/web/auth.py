@@ -98,7 +98,9 @@ def login():
     has_password = bool(h.setting("password_hash"))
     setup_code = current_app.config.get("SETUP_CODE")
     next_url = request.args.get("next") or url_for("main.dashboard")
-    if not next_url.startswith("/"):  # never redirect off-site
+    # Never redirect off-site: "/x" only, not "//host" or "/\\host" (browsers treat both
+    # as another site).
+    if not next_url.startswith("/") or next_url.startswith(("//", "/\\")):
         next_url = url_for("main.dashboard")
     ip = request.remote_addr or "?"
 

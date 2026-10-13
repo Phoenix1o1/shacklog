@@ -55,13 +55,26 @@ def checkpoint(db) -> None:
         log.debug("Checkpoint skipped", exc_info=True)
 
 
-def start_checkpoint_timer(db, interval: float = CHECKPOINT_INTERVAL_S) -> threading.Event:
-    """Checkpoint every ``interval`` seconds in a daemon thread. Set the event to stop."""
+def start_checkpoint_timer(db, interval: float = CHECKPOINT_INTERVAL_S,
+                           hourly: Callable[[], None] | None = None) -> threading.Event:
+    """Checkpoint every ``interval`` seconds in a daemon thread. Set the event to stop.
+
+    ``hourly`` (if given) also runs about once an hour in the same thread: the daily
+    backup check, so a hub or a PC that stays on for weeks still backs up every day.
+    """
     stop = threading.Event()
+    every = max(1, round(3600 / interval))
 
     def loop() -> None:
+        ticks = 0
         while not stop.wait(interval):
             checkpoint(db)
+            ticks += 1
+            if hourly is not None and ticks % every == 0:
+                try:
+                    hourly()
+                except Exception:
+                    log.exception("Hourly task failed")
 
     threading.Thread(target=loop, name="shacklog-checkpoint", daemon=True).start()
     return stop

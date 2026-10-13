@@ -74,9 +74,14 @@ def clean_tmp(paths: Paths) -> None:
 
 
 def startup_maintenance(db: Database, paths: Paths) -> None:
+    clean_tmp(paths)
+    daily_backup(db, paths)
+
+
+def daily_backup(db: Database, paths: Paths) -> None:
+    """The daily backup, if today's isn't there yet (at start, then hourly while running)."""
     from shacklog.services import backup
 
-    clean_tmp(paths)
     try:
         made = backup.daily_backup_if_due(db, paths.backups)
         if made:
@@ -127,7 +132,10 @@ def serve(app, host: str, port: int, behind_proxy: bool = False) -> None:
                "max_request_body_size": app.config["MAX_CONTENT_LENGTH"]}
     if behind_proxy:
         # Trust X-Forwarded-* from a reverse proxy (HTTPS termination on Proxmox).
-        options.update(trusted_proxy="*", trusted_proxy_count=1,
+        # Only a proxy on this same machine/container is trusted: anyone else sending
+        # X-Forwarded-For could otherwise pretend to be 127.0.0.1 (login lockout, SDR).
+        proxy = os.environ.get("SHACKLOG_TRUSTED_PROXY", "127.0.0.1")
+        options.update(trusted_proxy=proxy, trusted_proxy_count=1,
                        trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto",
                                               "x-forwarded-host"},
                        clear_untrusted_proxy_headers=True)
@@ -166,6 +174,9 @@ def make_shutdown(cleanup, exit_code: int = 0):
     def shutdown(code: int = exit_code) -> None:
         log.info("Shutting down on request")
         try:
+            from shacklog import tray
+
+            tray.hide_icon()
             cleanup()
         finally:
             os._exit(code)  # waitress has no clean stop from another thread
@@ -173,12 +184,14 @@ def make_shutdown(cleanup, exit_code: int = 0):
     return shutdown
 
 
-def prepare_run(db: Database, worker):
-    """Checkpoint now and every few minutes, and on every way the process can end."""
+def prepare_run(db: Database, worker, paths: Paths | None = None):
+    """Checkpoint now and every few minutes, and on every way the process can end.
+    With ``paths``, the daily backup is also checked every hour while running."""
     from shacklog.services import system
 
     system.checkpoint(db)
-    system.start_checkpoint_timer(db)
+    system.start_checkpoint_timer(
+        db, hourly=(lambda: daily_backup(db, paths)) if paths is not None else None)
     cleanup = make_cleanup(worker, db)
     system.on_exit(cleanup)
     return cleanup
@@ -217,7 +230,7 @@ def cmd_desktop(args) -> int:
 
     app = create_app(db, paths, mode="desktop")
     worker = None if args.no_sync else start_sync_worker(app)
-    cleanup = prepare_run(db, worker)
+    cleanup = prepare_run(db, worker, paths)
     app.config["SHUTDOWN"] = make_shutdown(cleanup)
     app.config["SYNC_WORKER"] = worker
 
@@ -274,7 +287,7 @@ def cmd_serve(args) -> int:
 
     app = create_app(db, paths, mode="server", setup_code=setup_code)
     worker = None if args.no_sync else start_sync_worker(app)
-    cleanup = prepare_run(db, worker)
+    cleanup = prepare_run(db, worker, paths)
     # "Restart" in Settings › Program exits with status 75; systemd (Restart=always)
     # starts the service again. Stop/update go through the control request file.
     app.config["SHUTDOWN"] = make_shutdown(cleanup, exit_code=75)

@@ -8,10 +8,16 @@ keeps one record (the *target*) and folds the others (*sources*) into it:
    automatically from the models (QSO.station_id, RadioConfig.radio_id, …), generic
    :class:`~shacklog.models.Link` rows, and this instance's settings (default station…);
 2. empty fields of the target are filled from the source (nothing typed is overwritten);
-3. the source is soft-deleted (it stays in the Trash and can be restored).
+3. the source is soft-deleted (it stays in the Trash and can be restored);
+4. a :class:`Link` with role ``merged-into`` (source → target) records the merge.
 
 Everything is an ordinary local edit, so the result syncs to every other instance and
-the duplicate disappears everywhere. Pure data logic: no Flask imports.
+the duplicate disappears everywhere.
+
+Another instance may still create references to the source *after* the merge (a QSO
+logged on the phone before it synced). The ``merged-into`` link travels with sync, and
+:func:`apply_merges` — run after every sync and bundle import — re-points such late
+references on whichever instance sees them. Pure data logic: no Flask imports.
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from shacklog.db import get_setting, set_setting
 from shacklog.models import (
+    ENTITIES,
     SYNC_ORDER,
     Contact,
     Equipment,
@@ -37,6 +44,9 @@ from shacklog.models import (
 
 #: Types the duplicate finder looks at, in page order.
 MERGEABLE: list[type[SyncMixin]] = [Station, Equipment, Repeater, Contact, StoredFile]
+
+#: Role of the Link that records "source was merged into target" (a = source, b = target).
+MERGED_ROLE = "merged-into"
 
 #: Local settings that hold a record id, per type.
 SETTING_REFS = {Station: ("default_station_id", "reference_station_id")}
@@ -67,6 +77,41 @@ class MergeResult:
     filled: list[str] = field(default_factory=list)
 
 
+def _repoint(session: Session, model: type[SyncMixin], source_id: str, target_id: str,
+             result: MergeResult) -> None:
+    """Point every live reference to ``source_id`` at ``target_id``."""
+    entity = model.__entity__
+    # 1. foreign keys
+    for ref_model, column in references_to(model):
+        col = getattr(ref_model, column)
+        for row in session.query(ref_model).filter(col == source_id):
+            setattr(row, column, target_id)
+            result.references += 1
+    # 2. generic links; a link that would now join the target to itself, or repeat an
+    #    existing link, is removed instead. A merge record only ever moves its target
+    #    side (A merged into B, then B into C: A is now "merged into C").
+    live = session.query(Link).filter(Link.deleted_at.is_(None)).all()
+    existing = {(l.a_type, l.a_id, l.b_type, l.b_id) for l in live}
+    for link in live:
+        changed = False
+        if link.a_type == entity and link.a_id == source_id and link.role != MERGED_ROLE:
+            link.a_id, changed = target_id, True
+        if link.b_type == entity and link.b_id == source_id:
+            link.b_id, changed = target_id, True
+        if not changed:
+            continue
+        key = (link.a_type, link.a_id, link.b_type, link.b_id)
+        if (link.a_type, link.a_id) == (link.b_type, link.b_id) or key in existing:
+            link.soft_delete()
+        else:
+            existing.add(key)
+        result.links += 1
+    # 3. local settings
+    for key in SETTING_REFS.get(model, ()):
+        if get_setting(session, key) == source_id:
+            set_setting(session, key, target_id)
+
+
 def merge(session: Session, model: type[SyncMixin], target_id: str,
           source_ids: Iterable[str]) -> MergeResult:
     """Fold ``source_ids`` into ``target_id``. The caller commits."""
@@ -81,36 +126,7 @@ def merge(session: Session, model: type[SyncMixin], target_id: str,
         source = session.get(model, source_id)
         if source is None or source.deleted_at is not None:
             continue
-        # 1. foreign keys
-        for ref_model, column in references_to(model):
-            col = getattr(ref_model, column)
-            for row in session.query(ref_model).filter(col == source_id):
-                setattr(row, column, target_id)
-                result.references += 1
-        # 2. generic links; a link that would now join the target to itself, or repeat an
-        #    existing link, is removed instead.
-        existing = {
-            (l.a_type, l.a_id, l.b_type, l.b_id)
-            for l in session.query(Link).filter(Link.deleted_at.is_(None))
-        }
-        for link in session.query(Link).filter(Link.deleted_at.is_(None)):
-            changed = False
-            if link.a_type == entity and link.a_id == source_id:
-                link.a_id, changed = target_id, True
-            if link.b_type == entity and link.b_id == source_id:
-                link.b_id, changed = target_id, True
-            if not changed:
-                continue
-            key = (link.a_type, link.a_id, link.b_type, link.b_id)
-            if (link.a_type, link.a_id) == (link.b_type, link.b_id) or key in existing:
-                link.soft_delete()
-            else:
-                existing.add(key)
-            result.links += 1
-        # 3. local settings
-        for key in SETTING_REFS.get(model, ()):
-            if get_setting(session, key) == source_id:
-                set_setting(session, key, target_id)
+        _repoint(session, model, source_id, target_id, result)
         # 4. fill the target's empty fields
         for column in sa_inspect(model).columns:
             name = column.key
@@ -120,12 +136,43 @@ def merge(session: Session, model: type[SyncMixin], target_id: str,
             if (mine is None or mine == "") and theirs not in (None, ""):
                 setattr(target, name, theirs)
                 result.filled.append(name)
-        # 5. retire the source
+        # 5. retire the source and record the merge (it syncs, see apply_merges)
         note = f"Merged into {target.display_name()} ({target.id[:8]}) on {utcnow():%Y-%m-%d}."
         if hasattr(source, "notes"):
             source.notes = f"{source.notes}\n\n{note}" if source.notes else note
         source.soft_delete()
+        session.add(Link(a_type=entity, a_id=source_id, b_type=entity, b_id=target_id,
+                         role=MERGED_ROLE, note=note[:300]))
         result.merged += 1
+    session.flush()
+    return result
+
+
+def apply_merges(session: Session) -> MergeResult:
+    """Re-point references that reached this instance after a merge made elsewhere.
+
+    Run after every sync pull/push and bundle import. A merged record that came back to
+    life (edited on another instance after the merge) goes back to the Trash; its data
+    is still there and can be restored. Changes are ordinary local edits, so they sync.
+    """
+    result = MergeResult(target_id="")
+    merges = (session.query(Link).filter(Link.deleted_at.is_(None))
+              .filter(Link.role == MERGED_ROLE).all())
+    for link in merges:
+        model = ENTITIES.get(link.a_type)
+        if model is None or link.b_type != link.a_type or link.a_id == link.b_id:
+            continue
+        target = session.get(model, link.b_id)
+        if target is None or target.deleted_at is not None:
+            continue  # the target itself was merged: its own link moved this one on
+        before = (result.references, result.links)
+        _repoint(session, model, link.a_id, link.b_id, result)
+        source = session.get(model, link.a_id)
+        if source is not None and source.deleted_at is None:
+            source.soft_delete()
+            result.merged += 1
+        elif (result.references, result.links) != before:
+            result.merged += 1
     session.flush()
     return result
 
@@ -190,6 +237,7 @@ def usage_count(session: Session, obj: SyncMixin) -> int:
                   .filter(ref_model.deleted_at.is_(None)).count())
     entity = obj.__entity__
     total += session.query(Link).filter(Link.deleted_at.is_(None)).filter(
+        (Link.role.is_(None)) | (Link.role != MERGED_ROLE)).filter(
         ((Link.a_type == entity) & (Link.a_id == obj.id)) |
         ((Link.b_type == entity) & (Link.b_id == obj.id))).count()
     return total

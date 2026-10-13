@@ -39,7 +39,8 @@ def test_finder_and_merge_moves_everything(s):
     assert s.get(Station, twin.id).deleted_at is not None
     assert get_setting(s, "default_station_id") == home.id
     assert s.get(Station, home.id).altitude_m == 120  # empty field filled
-    live_links = s.query(Link).filter(Link.deleted_at.is_(None)).all()
+    live_links = (s.query(Link).filter(Link.deleted_at.is_(None))
+                      .filter(Link.role != merge.MERGED_ROLE).all())
     assert len(live_links) == 1
     assert merge.find_duplicates(s) == []
 

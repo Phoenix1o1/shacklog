@@ -324,7 +324,11 @@ def _merge_batch(db, batch: list[dict], peer_id: str, peer_name: str | None, tot
 
 
 def _log_import(db, kind: str, filename: str, summary: dict) -> None:
+    """Finish an import: follow merges it brought in, then record it in the import log."""
+    from shacklog.services import merge
+
     with db.transaction() as s:
+        summary["merges_followed"] = merge.apply_merges(s).merged
         s.add(ImportLog(kind=kind, filename=filename,
                         summary=json.dumps(summary, default=str, sort_keys=True)))
 

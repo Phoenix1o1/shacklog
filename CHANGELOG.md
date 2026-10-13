@@ -27,7 +27,20 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   *Conflicts* with one entry per record.
 - The red margin rule of the log tables is continuous on every row.
 
-**Fixed**
+**Fixed** (including a pre-release review)
+- Merges follow late references: a merge is recorded and travels with sync, so a QSO
+  logged on another instance against the merged copy before it synced is moved to the
+  kept copy wherever it shows up. A backup is taken before every merge.
+- The daily backup also happens while ShackLog keeps running for days (hub, tray), not
+  only at start.
+- File records from sync or imports can only name files inside the library (a crafted
+  hash could point at any file on the server).
+- Web addresses saved in records must be http(s); Markdown images too.
+- The login page no longer redirects to another site via `//host` links.
+- `--behind-proxy` trusts only a proxy on the same machine (`SHACKLOG_TRUSTED_PROXY` for
+  another one).
+- *Start when I sign in* starts on the same data folder, and works from a source checkout.
+- Quitting from the web page also removes the tray icon.
 - An empty "Map area" label above the filters of QSOs, listening log and repeaters.
 
 ## 1.0.x — 12–13 October 2026

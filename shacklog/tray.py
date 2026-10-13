@@ -118,6 +118,20 @@ def icon_image(size: int = 64):
     return img.resize((size, size), Image.LANCZOS)
 
 
+_icon = None  # the running tray icon, so Quit from the web page can remove it too
+
+
+def hide_icon() -> None:
+    """Remove the tray icon (called on every way of quitting, so no ghost icon remains)."""
+    icon = _icon
+    if icon is not None:
+        try:
+            icon.visible = False
+            icon.stop()
+        except Exception:
+            pass
+
+
 def run(url: str, data_dir: Path, shutdown: Callable[[], None], serve: Callable[[], None],
         open_browser: bool) -> None:
     """Serve in a background thread and run the tray icon on this (main) thread."""
@@ -136,7 +150,7 @@ def run(url: str, data_dir: Path, shutdown: Callable[[], None], serve: Callable[
 
     def toggle_autostart(icon, item):
         try:
-            autostart.set_enabled(not autostart.is_enabled())
+            autostart.set_enabled(not autostart.is_enabled(), data_dir)
         except OSError:
             log.exception("Could not change start at sign-in")
 
@@ -154,7 +168,8 @@ def run(url: str, data_dir: Path, shutdown: Callable[[], None], serve: Callable[
         pystray.Menu.SEPARATOR,
         pystray.MenuItem(f"Quit {APP_NAME}", quit_app),
     )
-    icon = pystray.Icon(APP_NAME, icon_image(), f"{APP_NAME} – {url}", menu)
+    global _icon
+    icon = _icon = pystray.Icon(APP_NAME, icon_image(), f"{APP_NAME} – {url}", menu)
 
     def ready(icon):
         icon.visible = True

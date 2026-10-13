@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import mimetypes
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -35,6 +36,14 @@ mimetypes.add_type("text/plain", ".s2p")
 mimetypes.add_type("text/plain", ".adi")
 
 
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def is_sha256(value) -> bool:
+    """True for a lowercase hex SHA-256: the only names blobs may have (no paths!)."""
+    return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
+
+
 class FileStore:
     """Blob storage rooted at a folder (``Paths.files``)."""
 
@@ -43,10 +52,14 @@ class FileStore:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def path_for(self, sha256: str) -> Path:
+        # The hash comes from the database, which sync and imports fill from other
+        # instances: never let it be a path ("../..", "/etc/…").
+        if not is_sha256(sha256):
+            raise ValueError("Not a SHA-256 file name.")
         return self.root / sha256[:2] / sha256
 
     def exists(self, sha256: str) -> bool:
-        return bool(sha256) and self.path_for(sha256).is_file()
+        return is_sha256(sha256) and self.path_for(sha256).is_file()
 
     def put_stream(self, stream: BinaryIO) -> tuple[str, int]:
         """Store a stream, return (sha256, size). Writes to a temp file then renames,

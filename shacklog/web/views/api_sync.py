@@ -164,6 +164,9 @@ def push():
         peer.last_pull_seq = batch_last  # the client's changes we now hold
     peer.last_push_seq = last_pull  # our changes the client has (informational)
     peer.last_status = "ok"
+    from shacklog.services import merge
+
+    merge.apply_merges(s)  # merges the client made: re-point what refers to the old copy here
     s.commit()
     return jsonify(ok=True, stats=stats, current_seq=sync_engine.current_seq(s))
 

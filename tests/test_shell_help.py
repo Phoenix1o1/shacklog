@@ -25,6 +25,9 @@ def test_help_pages(client):
 def test_autostart_files(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     assert "--no-browser" in autostart.launch_command()
+    cmd = autostart.launch_command(tmp_path / "data")
+    assert cmd[cmd.index("--data-dir") + 1] == str(tmp_path / "data")
+    assert cmd[1].endswith("launcher.py")  # from source: works from any folder
     assert "Exec=" in autostart.linux_entry()
     assert "<key>RunAtLoad</key>" in autostart.mac_entry()
     if sys.platform.startswith("linux"):
@@ -39,7 +42,7 @@ def test_program_page_autostart_toggle(client, tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     monkeypatch.setattr(autostart, "is_enabled", lambda: calls[-1] if calls else False)
     calls = []
-    monkeypatch.setattr(autostart, "set_enabled", calls.append)
+    monkeypatch.setattr(autostart, "set_enabled", lambda on, data_dir=None: calls.append(on))
     assert "Start when I sign in" in client.get("/settings/program").text
     r = client.post("/settings/program", data={"_csrf": csrf(client), "action": "autostart",
                                                 "enabled": "1"})

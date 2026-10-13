@@ -585,7 +585,7 @@ def program():
 
             want = request.form.get("enabled") == "1"
             try:
-                autostart.set_enabled(want)
+                autostart.set_enabled(want, paths.data_dir)
                 flash(f"{APP_NAME} will {'now' if want else 'no longer'} start when you sign in"
                       f"{' (in the background)' if want else ''}.", "ok")
             except OSError as exc:
@@ -669,6 +669,9 @@ def duplicates():
         if model is None or model not in merge_svc.MERGEABLE or not keep or not others:
             flash("Pick the record to keep.", "error")
             return redirect(url_for(".duplicates"))
+        from shacklog.services import backup
+
+        backup.create_backup(_db(), _paths().backups, reason="before-merge")
         try:
             result = merge_svc.merge(s, model, keep, others)
         except ValueError as exc:

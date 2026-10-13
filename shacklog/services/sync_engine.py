@@ -50,10 +50,12 @@ from shacklog.models import (
     LOCAL_COLUMNS,
     SYNC_ORDER,
     TABLES,
+    StoredFile,
     SyncConflict,
     SyncMixin,
     utcnow,
 )
+from shacklog.services.filestore import is_sha256
 
 log = logging.getLogger(__name__)
 
@@ -228,7 +230,10 @@ def changes_since(session: Session, seq: int, exclude_peer: str | None,
 
 def _parse_row(model: type[SyncMixin], row: dict) -> dict[str, Any]:
     cols = synced_columns(model)
-    return {k: from_json_value(v, cols[k]) for k, v in row.items() if k in cols}
+    parsed = {k: from_json_value(v, cols[k]) for k, v in row.items() if k in cols}
+    if model is StoredFile and parsed.get("sha256") and not is_sha256(parsed["sha256"]):
+        raise ValueError("sha256 is not a SHA-256 hash")  # stored as a conflict, not applied
+    return parsed
 
 
 def _snapshot_of_incoming(row: dict, parsed: dict[str, Any]) -> dict:
