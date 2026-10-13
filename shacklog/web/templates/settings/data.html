@@ -36,15 +36,20 @@
           <input id="file" type="file" name="file" accept=".zip,.sqlite3,.sqlite,.db" required></div>
         <div class="form-actions"><button class="btn btn-primary">Import and merge</button></div>
       </form>
-      {% if desktop %}
-      <h3>Or a file already on this computer</h3>
-      <p class="small muted">Best for big bundles (over a few hundred MB, or when the upload stalls).</p>
+      <h3>Or a file already on this {{ 'computer' if desktop else 'server' }}</h3>
+      <p class="small muted">Best for big bundles (over a few hundred MB, or when the upload stalls).
+        {% if desktop %}Pick one below, or paste its path.{% else %}Copy it into <code>{{ incoming_dir }}</code>
+        first, e.g. on Proxmox: <code>pct push &lt;id&gt; ShackLog-export.zip {{ incoming_dir }}/ShackLog-export.zip --perms 0644</code>,
+        then reload this page.{% endif %}</p>
       {% for path in local_bundles %}
       <form method="post" class="inline-form">
         {{ csrf() }}<input type="hidden" name="action" value="import_path"><input type="hidden" name="path" value="{{ path }}">
         <button class="btn">Import {{ path.replace('\\', '/').rsplit('/', 1)[-1] }}</button>
       </form>
+      {% else %}
+      {% if not desktop %}<p class="small muted">Nothing in {{ incoming_dir }} yet.</p>{% endif %}
       {% endfor %}
+      {% if desktop %}
       <form method="post" class="grid">
         {{ csrf() }}
         <input type="hidden" name="action" value="import_path">

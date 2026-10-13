@@ -43,7 +43,34 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -S warning -x deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
-            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh packaging/build_unix.sh packaging/update_unix.sh
+            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh deploy/docker/entrypoint.sh \
+            packaging/build_unix.sh packaging/update_unix.sh
+
+  docker:
+    # The Docker variant of the hub: the image builds, starts, creates its database in
+    # the volume and answers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the image
+        run: |
+          # No data folder yet, as on a first install: Docker creates it (owned by root).
+          docker compose -f deploy/docker/docker-compose.yml up -d --build
+      - name: Wait for it to answer
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8573/healthz; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8573/healthz | grep -q '"app": *"ShackLog"'
+          test -f deploy/shacklog-data/shacklog.sqlite3
+          # created by the program itself, running as the unprivileged user
+          docker compose -f deploy/docker/docker-compose.yml exec -T shacklog stat -c %U /data/shacklog.sqlite3 | grep -qx shacklog
+          docker compose -f deploy/docker/docker-compose.yml exec -T shacklog sh -c 'grep ^Uid: /proc/1/status' | grep -q '1000'
+          curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8573/login
+      - name: Logs
+        if: always()
+        run: docker compose -f deploy/docker/docker-compose.yml logs --tail 80
 
   executable:
     needs: test

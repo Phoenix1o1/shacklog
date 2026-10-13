@@ -73,6 +73,8 @@ class Paths:
         reference/          downloaded reference data, re-creatable: country list,
                             callbook cache
         maps/               offline map files (*.mbtiles) and cache/ of viewed tiles
+        incoming/           bundles or databases put here by hand, offered as one-click
+                            imports (how a big bundle reaches the hub: pct push)
         control/            update status and requests between the program and the
                             hub's shacklog-ctl (which hard-codes "control" too)
         tmp/                scratch for uploads and imports, emptied at every start
@@ -110,6 +112,11 @@ class Paths:
         return self.data_dir / "maps"
 
     @property
+    def incoming(self) -> Path:
+        """Files to import, copied here by hand (Settings › Import, export & backups)."""
+        return self.data_dir / "incoming"
+
+    @property
     def control(self) -> Path:
         """Update status and server requests (services/updates.py, system.py)."""
         return self.data_dir / "control"
@@ -125,7 +132,7 @@ class Paths:
 
     def ensure(self) -> "Paths":
         """Create every folder that must exist. Safe to call repeatedly."""
-        for folder in (self.data_dir, self.files, self.backups, self.tmp):
+        for folder in (self.data_dir, self.files, self.backups, self.tmp, self.incoming):
             folder.mkdir(parents=True, exist_ok=True)
         return self
 

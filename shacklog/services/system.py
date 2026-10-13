@@ -359,6 +359,16 @@ def launch_desktop_update(repo: Path, rebuild: bool = False,
 # Server requests (hub)
 # ---------------------------------------------------------------------------
 
+def in_docker() -> bool:
+    """Running from the image in deploy/docker (it sets SHACKLOG_RUNTIME=docker)."""
+    return os.environ.get("SHACKLOG_RUNTIME") == "docker"
+
+
+def update_script_name() -> str:
+    """The helper "Update now" runs on this PC (see launch_desktop_update)."""
+    return r"packaging\update_windows.bat" if os.name == "nt" else "packaging/update_unix.sh"
+
+
 def control_available() -> bool:
     """True when systemd watches the request file (set by deploy/shacklog.service)."""
     return os.environ.get("SHACKLOG_CONTROL") == "systemd"

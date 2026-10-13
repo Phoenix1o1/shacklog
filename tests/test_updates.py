@@ -126,3 +126,23 @@ def test_hub_check_and_auto_install_flag(tmp_path, monkeypatch):
     assert "Turn off automatic install" in c.get("/settings/program").text
     c.post("/settings/program", data={"_csrf": csrf(c), "action": "auto_update", "enabled": "0"})
     assert not updates.hub_auto_install(paths.data_dir)
+
+
+def test_update_panel_fits_the_platform(client, tmp_path, monkeypatch):
+    """Update now names this OS's helper; a Docker hub is told to rebuild its image."""
+    from tests.conftest import build_app
+
+    monkeypatch.setattr(system, "repo_status", lambda **kw: system.RepoStatus(
+        path=tmp_path, git=True, branch="main", commit="abc1234"))
+    page = client.get("/settings/program").text
+    assert system.update_script_name() in page
+    assert ("update_unix.sh" in page) != (system.os.name == "nt")
+    monkeypatch.setattr(system, "repo_status", lambda **kw: system.RepoStatus(path=None, git=False))
+    monkeypatch.setenv("SHACKLOG_RUNTIME", "docker")
+    app, _db, _paths = build_app(tmp_path / "srv", mode="server")
+    c = app.test_client()
+    with c.session_transaction() as sess:
+        sess["logged_in"] = True
+    page = c.get("/settings/program").text
+    assert "docker compose -f deploy/docker/docker-compose.yml up -d --build" in page
+    assert "Download the" not in page and "restart: unless-stopped" in page

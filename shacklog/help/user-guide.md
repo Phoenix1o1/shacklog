@@ -213,6 +213,28 @@ version, the last check and what's new.
   installs them (backup first, automatic rollback if the new version doesn't start).
   Turn on **Install updates automatically** to let the timer do it. From the container:
   `shacklog-ctl check` and `shacklog-ctl update`.
+- **Docker**: the program is in the image. On the Docker host, in the ShackLog folder:
+  `git pull`, then `docker compose -f deploy/docker/docker-compose.yml up -d --build`.
+  The data folder is kept.
+- **Downloaded executable** (not a git copy): download the new one and replace the file.
+
+## What works where
+
+The logbook is the same everywhere: every log, section, search, filter, map, import,
+export, sync, bundle, backup, country, callbook and QSL feature works on every instance.
+What differs comes from where it runs:
+
+| | Windows PC | Linux / macOS PC | Proxmox hub | Docker |
+|---|---|---|---|---|
+| Opened from | this computer only | this computer only | phone and every PC | phone and every PC |
+| Password | optional | optional | always | always |
+| Runs in the background | tray icon | until you quit | always (service) | always (container) |
+| Start when I sign in | yes | yes | at boot | `restart: unless-stopped` |
+| Updates | at start + **Update now** | at start + **Update now** | timer, **Update and restart**, rollback | rebuild the image |
+| Quit / restart / stop | Quit | Quit | restart, stop | restart |
+| Open data folder, SDR monitor | yes | yes | — (no screen there) | — |
+| Import a big file by path | any path | any path | from its `incoming/` folder | from `incoming/` |
+| Map tiles offline | cache + `.mbtiles` | cache + `.mbtiles` | cache + `.mbtiles`, shared with the phone | same as the hub |
 
 ## Commands
 

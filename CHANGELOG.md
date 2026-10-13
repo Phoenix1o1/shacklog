@@ -29,7 +29,24 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With
   no internet, cached and offline areas still show. Tile server can be changed.
 
+**Changed**
+- *Proxmox container creator*: every answer is checked as you type it and asked again
+  with the reason when it's wrong: IPv4 address and prefix (not the network or broadcast
+  address), gateway in the same network, address already used by another guest or
+  answering on the network, ID, hostname, cores, memory, disk, VLAN, port, backup time,
+  restore archive. The static address is suggested from the bridge's network.
+- The same features on every kind of instance: the hub (and Docker) can import a big
+  bundle by path too, from the data folder's new `incoming/` folder; *Program & updates*
+  names the right update helper on Linux/macOS and explains Docker updates; a table
+  *What works where* in the user guide.
+- Folders tidied: the data folder's layout is defined in one place, leftovers of
+  interrupted writes are removed at start, the Docker files are in `deploy/docker/`
+  (an existing Docker install keeps its data folder).
+
 **Fixed**
+- Docker: the first start failed when Docker created the data folder itself (owned by
+  root, while ShackLog runs as its own user). The container now hands the folder over
+  before starting. CI builds and starts the image.
 - Bundles no longer contain this instance's secrets (web password hash, sync tokens,
   callbook password): they are removed from the copy of the database that goes in the
   zip. Local backups still keep them.

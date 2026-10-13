@@ -344,7 +344,7 @@ def data():
             result = _import_upload()
             if result is not None:
                 return result
-        elif action == "import_path" and current_app.config["MODE"] == "desktop":
+        elif action == "import_path":
             result = _import_local_path(request.form.get("path", ""))
             if result is not None:
                 return result
@@ -378,7 +378,7 @@ def data():
         tiles_online=bool(h.setting("map_tiles_online")),
         tile_url=h.setting("map_tile_url") or "", tile_cache_mb=h.setting("map_tile_cache_mb"),
         desktop=current_app.config["MODE"] == "desktop", local_bundles=_local_bundles(),
-        backups_dir=str(_paths().backups),
+        backups_dir=str(_paths().backups), incoming_dir=str(_paths().incoming),
         keep_daily=h.setting("backup_keep_daily"), keep_other=h.setting("backup_keep_import"),
     )
 
@@ -539,28 +539,45 @@ def _import_upload():
     return render_template("settings/import_done.html", summary=summary, filename=upload.filename)
 
 
+IMPORTABLE = ("*.zip", "*.sqlite3", "*.sqlite", "*.db")
+
+
 def _local_bundles() -> list[str]:
-    """Bundles waiting next to the program (e.g. ShackLog-import-*.zip in the working copy),
-    offered as one-click imports in desktop mode."""
+    """Files offered as one-click imports: everything in the data folder's incoming/
+    (every instance), plus on a PC ShackLog-*.zip next to the program and in Downloads."""
     from shacklog.services.system import repo_root
 
-    if current_app.config["MODE"] != "desktop":
-        return []
     found: list[str] = []
-    for folder in filter(None, [repo_root(), Path.home() / "Downloads"]):
-        try:
-            found += [str(p) for p in sorted(folder.glob("ShackLog-*.zip"))]
-        except OSError:
-            continue
+    incoming = _paths().incoming
+    if incoming.is_dir():
+        for pattern in IMPORTABLE:
+            found += [str(p) for p in sorted(incoming.glob(pattern))]
+    if current_app.config["MODE"] == "desktop":
+        for folder in filter(None, [repo_root(), Path.home() / "Downloads"]):
+            try:
+                found += [str(p) for p in sorted(folder.glob("ShackLog-*.zip"))]
+            except OSError:
+                continue
     return found
 
 
 def _import_local_path(raw: str):
-    """Desktop only: import a file already on this computer, by path. Browsers can't send
-    very large files reliably, and a path avoids copying a big bundle twice."""
+    """Import a file already on this machine, by path. Browsers can't send very large
+    files reliably, and a path avoids copying a big bundle twice. A PC takes any path;
+    the hub (reachable from the network) only files in its incoming/ folder."""
     from shacklog.services import bundle
 
     path = Path(raw.strip().strip('"')).expanduser()
+    if current_app.config["MODE"] != "desktop":
+        incoming = _paths().incoming.resolve()
+        try:
+            inside = path.resolve().parent == incoming
+        except OSError:
+            inside = False
+        if not inside:
+            flash(f"On the hub, put the file in {incoming} first, then import it from the list.",
+                  "error")
+            return None
     if not raw.strip() or not path.is_file():
         flash(f"No file at “{raw.strip()}”. Paste the full path of the .zip or .sqlite3.", "error")
         return None
@@ -835,6 +852,7 @@ def program():
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
         os_name=os.name,
         autostart=_autostart_state() if desktop else None,
+        in_docker=system.in_docker(), update_script=system.update_script_name(),
     )
 
 

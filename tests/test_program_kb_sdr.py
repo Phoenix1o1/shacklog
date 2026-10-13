@@ -174,3 +174,33 @@ def test_import_bundle_from_local_path(client, tmp_path, app):
     r = client.post("/settings/data", data={"_csrf": csrf(client), "action": "import_path",
                                              "path": str(tmp_path / "missing.zip")})
     assert r.status_code == 302
+
+
+def test_hub_imports_only_from_its_incoming_folder(tmp_path):
+    """The hub lists what was copied into <data>/incoming (pct push) and imports it with
+    one click; a path anywhere else on the server is refused."""
+    from shacklog.services import bundle
+    from tests.conftest import build_app
+
+    other, other_db, other_paths = build_app(tmp_path / "laptop")
+    with other.test_client() as oc:
+        oc.post("/kb/new-note", data={"_csrf": csrf(oc), "title": "Via incoming", "body": "x"})
+    hub, _db, hub_paths = build_app(tmp_path / "hub", mode="server")
+    c = hub.test_client()
+    with c.session_transaction() as sess:
+        sess["logged_in"] = True
+    outside = bundle.export_bundle(other_db, other_paths, tmp_path / "ShackLog-x.zip")
+    r = c.post("/settings/data", data={"_csrf": csrf(c), "action": "import_path", "path": str(outside)})
+    assert r.status_code == 302
+    assert "Via incoming" not in c.get("/kb/").text
+    page = c.get("/settings/data").text
+    assert "Nothing in" in page and "pct push" in page and "Full path of the file" not in page
+    inside = hub_paths.incoming / "ShackLog-x.zip"
+    inside.write_bytes(outside.read_bytes())
+    assert "Import ShackLog-x.zip" in c.get("/settings/data").text
+    r = c.post("/settings/data", data={"_csrf": csrf(c), "action": "import_path", "path": str(inside)})
+    assert r.status_code == 200 and "Via incoming" in c.get("/kb/").text
+    traversal = str(hub_paths.incoming / ".." / "ShackLog-x.zip")
+    (hub_paths.data_dir / "ShackLog-x.zip").write_bytes(b"x")
+    r = c.post("/settings/data", data={"_csrf": csrf(c), "action": "import_path", "path": traversal})
+    assert r.status_code == 302  # resolved outside incoming/: refused
