@@ -22,7 +22,9 @@ skipped. Otherwise the mode decides whether the two sides changed the record
 ``client``  the hub already resolved conflicts, so its version applies — unless the local
             row was changed here (not received from the hub) after our last push
             (``change_seq > local_dirty_after``).
-``import``  no history: always treated as concurrent.
+``import``  no history: treated as concurrent, unless the local row is exactly what this
+            same source sent us last time (``received_from`` is the source and nothing
+            was edited here since): then the source simply has a newer version.
 
 Not concurrent → the incoming version applies. Concurrent → the newer version wins and,
 when the data differs (ignoring the two stamp columns), the loser is stored in
@@ -362,7 +364,9 @@ def _merge_one(session: Session, model: type[SyncMixin], row: dict,
         # Changed here (by an edit or an import) after our last push, and not by the hub.
         concurrent = local.received_from != peer_id and (local.change_seq or 0) > (local_dirty_after or 0)
     else:
-        concurrent = True
+        # A row received from this source and not edited here since is just an older
+        # copy of the source's own record: its newer version applies without a conflict.
+        concurrent = not (local.received_from == peer_id and incoming_v > local_v)
 
     if not concurrent:
         _write(local, incoming, peer_id)

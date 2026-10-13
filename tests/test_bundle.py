@@ -206,3 +206,16 @@ def test_old_bundle_rows_lose_to_newer_hub_rows_regardless_of_order(two, tmp_pat
     with dst_db.transaction() as s:
         assert s.query(Qso).one().name == "Newer"
         assert s.query(SyncConflict).filter_by(kind="incoming_discarded").count() == 1
+
+
+def test_newer_bundle_from_same_source_updates_without_conflict(two, tmp_path):
+    """Importing a later bundle of the same instance just brings its newer versions."""
+    (src_app, src_db, src_paths), (dst_app, dst_db, dst_paths) = two
+    _fill(src_app, src_db)
+    bundle.import_bundle(dst_db, dst_paths, bundle.export_bundle(src_db, src_paths, tmp_path / "1.zip"))
+    with src_db.transaction() as s:
+        s.query(Qso).one().name = "Second"
+    bundle.import_bundle(dst_db, dst_paths, bundle.export_bundle(src_db, src_paths, tmp_path / "2.zip"))
+    with dst_db.transaction() as s:
+        assert s.query(Qso).one().name == "Second"
+        assert s.query(SyncConflict).count() == 0
