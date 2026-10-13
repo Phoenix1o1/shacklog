@@ -42,6 +42,7 @@ VIEW_MODULES = [
     "map",
     "stats",
     "settings",
+    "help",
     "api_sync",
 ]
 

@@ -18,21 +18,31 @@
 @font-face { font-family: "Atkinson"; font-weight: 700; font-style: italic; font-display: swap;
   src: url("../vendor/fonts/atkinson-hyperlegible-latin-700-italic.woff2") format("woff2"); }
 
-/* ---------- tokens ---------- */
+/* ---------- tokens ----------
+   Dark ("night shack") is the default: easy on the eyes in a dim room at night.
+   The light "paper ledger" look is one click away (the ☀/☾ button in the top bar,
+   remembered per browser). The choice is the data-theme attribute on <html>, set by a
+   tiny inline script in base.html before the page paints, so there is no flash. */
 :root {
-  --paper: #f7f9f3;
-  --surface: #ffffff;
-  --ink: #18302a;
-  --ink-2: #51665e;
-  --bar: #e6efe1;          /* green-bar row */
-  --rule: #c4d3be;
-  --rule-strong: #93ab8c;
-  --accent: #0d6b59;       /* logbook green: links, primary buttons */
-  --accent-ink: #ffffff;
-  --accent-soft: #d5ebe3;
-  --margin: #cf3f37;       /* the red ledger margin, also danger */
-  --amber: #f3b733;        /* search highlights, current state */
-  --focus: #1b74e4;
+  color-scheme: dark;
+  --paper: #0f1419;        /* page background */
+  --surface: #171e25;      /* panels, tables */
+  --ink: #e8eef4;          /* main text */
+  --ink-2: #a5b3c1;        /* secondary text */
+  --bar: #1c242c;          /* green-bar row (alternate rows) */
+  --rule: #2c3743;
+  --rule-strong: #445466;
+  --accent: #4fd1a5;       /* links, primary buttons, current page */
+  --accent-ink: #062419;
+  --accent-soft: #173a31;
+  --margin: #f27c6e;       /* the red ledger margin, also danger */
+  --amber: #f3bb4c;        /* search highlights, current state */
+  --focus: #7db6ff;
+  --top-bg: #0a0d11;       /* top bar */
+  --top-ink: #e8eef4;
+  --nav-bg: #12181e;       /* side navigation */
+  --nav-hover: #1d2730;
+  --shadow: 0 12px 32px rgba(0, 0, 0, .45);
 
   --font: "Atkinson", "Segoe UI", system-ui, -apple-system, sans-serif;
   --step--1: 0.875rem;
@@ -44,24 +54,30 @@
   --radius-btn: 6px;
   --gap: 1rem;
   --measure: 72ch;
+  --topbar-h: 3.4rem;
+  --nav-w: 14.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0e1714;
-    --surface: #14211c;
-    --ink: #e1ece5;
-    --ink-2: #9fb6ab;
-    --bar: #16251f;
-    --rule: #2a3f36;
-    --rule-strong: #3f5a4f;
-    --accent: #5cc7a8;
-    --accent-ink: #052019;
-    --accent-soft: #1d3a31;
-    --margin: #ef6b5d;
-    --amber: #e3a826;
-    --focus: #79b2ff;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --paper: #f7f9f3;
+  --surface: #ffffff;
+  --ink: #18302a;
+  --ink-2: #4b6058;
+  --bar: #e9f1e4;
+  --rule: #c4d3be;
+  --rule-strong: #93ab8c;
+  --accent: #0d6b59;
+  --accent-ink: #ffffff;
+  --accent-soft: #d5ebe3;
+  --margin: #c7372f;
+  --amber: #f3b733;
+  --focus: #1b74e4;
+  --top-bg: #18302a;
+  --top-ink: #f7f9f3;
+  --nav-bg: #eef3ea;
+  --nav-hover: #dfe9da;
+  --shadow: 0 12px 32px rgba(10, 30, 24, .18);
 }
 
 /* ---------- base ---------- */
@@ -96,48 +112,80 @@ code, .code { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monos
 
 /* ---------- top bar ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 20;
+  position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: .75rem;
-  padding: .5rem 1rem;
-  background: var(--ink);
-  color: var(--paper);
+  min-height: var(--topbar-h);
+  padding: .45rem 1rem;
+  background: var(--top-bg);
+  color: var(--top-ink);
+  border-bottom: 1px solid var(--rule);
 }
-.brand { color: var(--paper); text-decoration: none; font-weight: 700; font-size: var(--step-1); display: flex; align-items: baseline; gap: .5rem; }
-.brand-instance { font-weight: 400; font-size: var(--step--1); opacity: .7; }
-.topsearch { flex: 1; max-width: 28rem; margin-left: auto; }
+.brand { color: var(--top-ink); text-decoration: none; font-weight: 700; font-size: var(--step-1); display: flex; align-items: baseline; gap: .5rem; }
+.brand-instance { font-weight: 400; font-size: var(--step--1); opacity: .75; }
+.topsearch { flex: 1; max-width: 30rem; margin-left: auto; }
 .topsearch input {
-  width: 100%; border: 1px solid transparent; border-radius: var(--radius-btn);
-  padding: .45rem .7rem; font: inherit; background: color-mix(in srgb, var(--paper) 12%, transparent);
-  color: var(--paper);
+  width: 100%; border: 1px solid color-mix(in srgb, var(--top-ink) 30%, transparent); border-radius: var(--radius-btn);
+  padding: .45rem .7rem; font: inherit; background: color-mix(in srgb, var(--top-ink) 10%, transparent);
+  color: var(--top-ink);
 }
-.topsearch input::placeholder { color: color-mix(in srgb, var(--paper) 60%, transparent); }
-.topsearch input:focus { background: var(--paper); color: var(--ink); }
-.topbar .btn-primary { background: var(--accent); color: var(--accent-ink); }
-@media (prefers-color-scheme: dark) {
-  .topbar { background: #07100d; }
-  .brand, .topsearch input { color: var(--ink); }
+.topsearch input::placeholder { color: color-mix(in srgb, var(--top-ink) 65%, transparent); }
+.topsearch input:focus { background: var(--surface); color: var(--ink); }
+.topbar .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-width: 2.4rem; height: 2.4rem; padding: 0 .7rem; border-radius: var(--radius-btn);
+  border: 1px solid color-mix(in srgb, var(--top-ink) 40%, transparent);
+  background: color-mix(in srgb, var(--top-ink) 8%, transparent); color: var(--top-ink);
+  font: inherit; font-weight: 700; cursor: pointer; text-decoration: none;
 }
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* The menu button only shows when the side navigation is folded away (narrow screens).
+   It is deliberately loud: accent-coloured, so it never blends into the bar. */
+.nav-toggle { display: none; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.nav-toggle:hover { color: var(--accent-ink); filter: brightness(1.1); }
+.nav-toggle svg, .icon-btn svg { width: 1.2rem; height: 1.2rem; }
 
-.menu { position: relative; }
-.menu > summary {
-  list-style: none; cursor: pointer; padding: .45rem .75rem; border-radius: var(--radius-btn);
-  border: 1px solid color-mix(in srgb, var(--paper) 35%, transparent); color: inherit;
+/* ---------- side navigation ---------- */
+.shell { flex: 1; display: flex; min-height: 0; }
+.main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sidenav {
+  flex: none; width: var(--nav-w);
+  position: sticky; top: var(--topbar-h); align-self: flex-start;
+  height: calc(100vh - var(--topbar-h)); overflow-y: auto;
+  padding: .75rem .6rem 2rem;
+  background: var(--nav-bg); border-right: 1px solid var(--rule);
 }
-.menu > summary::-webkit-details-marker { display: none; }
-.menu[open] > summary { background: color-mix(in srgb, var(--paper) 15%, transparent); }
-.menu-panel {
-  position: absolute; right: 0; top: calc(100% + .5rem);
-  display: grid; grid-template-columns: repeat(4, minmax(10rem, 1fr)); gap: 1rem 1.5rem;
-  padding: 1rem 1.25rem; min-width: 44rem;
-  background: var(--surface); color: var(--ink);
-  border: 1px solid var(--rule); border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(10, 30, 24, .18);
+.sidenav-head { display: none; }
+.nav-group { margin-bottom: .9rem; }
+.nav-group-title {
+  display: block; padding: 0 .6rem .25rem; font-size: .75rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2);
 }
-.menu-group { display: flex; flex-direction: column; gap: .15rem; }
-.menu-group-title { font-size: var(--step--1); color: var(--ink-2); margin-bottom: .25rem; }
-.menu-group a { padding: .2rem 0; text-decoration: none; color: var(--ink); }
-.menu-group a:hover { color: var(--accent); }
-.menu-group a[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.sidenav a, .sidenav .linklike {
+  display: flex; align-items: center; gap: .55rem; width: 100%;
+  padding: .38rem .6rem; border-radius: var(--radius-btn);
+  color: var(--ink); text-decoration: none; font-size: .97rem; text-align: left;
+  border-left: 3px solid transparent;
+}
+.sidenav a:hover, .sidenav .linklike:hover { background: var(--nav-hover); color: var(--ink); }
+.sidenav a[aria-current="page"] {
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; border-left-color: var(--accent);
+}
+.nav-ico { width: 1.1rem; text-align: center; opacity: .85; flex: none; }
+.nav-backdrop { display: none; }
+
+@media (max-width: 1000px) {
+  .nav-toggle { display: inline-flex; }
+  .sidenav {
+    position: fixed; z-index: 50; top: 0; left: 0; bottom: 0; height: auto;
+    width: min(20rem, 86vw); transform: translateX(-105%); transition: transform .18s ease-out;
+    box-shadow: var(--shadow);
+  }
+  .sidenav-head { display: flex; align-items: center; justify-content: space-between; padding: .25rem .4rem .75rem; }
+  .sidenav-head .icon-btn { color: var(--ink); border-color: var(--rule-strong); }
+  body.nav-open .sidenav, .sidenav:target { transform: none; }
+  body.nav-open .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .5); }
+}
 
 /* ---------- page ---------- */
 .page { flex: 1; width: 100%; max-width: 78rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
@@ -223,7 +271,7 @@ code, .code { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monos
 .chip a:hover { background: var(--accent); color: var(--accent-ink); }
 .saved-filters { position: relative; font-size: var(--step--1); margin-left: auto; }
 .saved-filters > summary { cursor: pointer; color: var(--accent); }
-.saved-panel { position: absolute; right: 0; z-index: 10; min-width: 18rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: .75rem; box-shadow: 0 8px 24px rgba(10, 30, 24, .14); }
+.saved-panel { position: absolute; right: 0; z-index: 10; min-width: 18rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: .75rem; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
 .saved-item { display: flex; justify-content: space-between; gap: .5rem; padding: .15rem 0; }
 .save-filter { display: flex; gap: .35rem; margin-top: .5rem; }
 .save-filter input { flex: 1; }
@@ -338,7 +386,6 @@ input.t-freq { font-variant-numeric: tabular-nums; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
-  .menu-panel { position: fixed; left: .5rem; right: .5rem; top: 3.4rem; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: calc(100vh - 4rem); overflow-y: auto; }
   .detail-grid { grid-template-columns: 1fr; }
   .dash > .panel, .dash > .panel.third { grid-column: span 12; }
 }
@@ -478,7 +525,7 @@ input.t-freq { font-variant-numeric: tabular-nums; }
 .map-area select { width: auto; }
 .map-status { font-size: var(--step--1); color: var(--ink-2); margin: .4rem 0 0; min-height: 1.4em; }
 .map-popup-title { font-weight: 700; }
-.map-popup-sub { color: #51665e; }
+.map-popup-sub { color: #4b6058; }
 
 /* ---------- statistics ---------- */
 .stats-filter { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end; margin-bottom: 1rem; }
@@ -581,3 +628,10 @@ code.path, .facts dd { overflow-wrap: anywhere; }
   .sdr-layout { grid-template-columns: 1fr; }
   .sdr-frame { height: 80vh; }
 }
+
+/* ---------- side navigation: drawer close button (keeps its own size) ---------- */
+.sidenav .sidenav-head a.icon-btn {
+  display: inline-flex; width: auto; flex: none; padding: 0 .75rem;
+  border: 1px solid var(--rule-strong); color: var(--ink); font-size: 1.1rem;
+}
+.sidenav .sidenav-head a.icon-btn:hover { border-color: var(--accent); color: var(--accent); background: transparent; }

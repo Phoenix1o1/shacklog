@@ -3,7 +3,8 @@
 
   - UTC clock in the footer.
   - "Now (UTC)" buttons next to date/time inputs marked data-now.
-  - Keep the open/closed state of the mobile menu tidy when navigating.
+  - The navigation drawer on narrow screens (works without JS too, via #sidenav).
+  - The dark/light switch, remembered in this browser (dark is the default).
 */
 (function () {
   "use strict";
@@ -39,9 +40,28 @@
     input.insertAdjacentElement("afterend", btn);
   });
 
-  // Close the menu when clicking outside it.
-  document.addEventListener("click", function (e) {
-    var menu = document.querySelector("details.menu[open]");
-    if (menu && !menu.contains(e.target)) menu.removeAttribute("open");
+  // Navigation drawer (narrow screens). Without JS the Menu link jumps to #sidenav,
+  // which CSS shows with :target; with JS it toggles a class instead.
+  var toggle = document.querySelector("[data-nav-toggle]");
+  function setNav(open) {
+    document.body.classList.toggle("nav-open", open);
+    if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (toggle) toggle.addEventListener("click", function (e) {
+    e.preventDefault();
+    setNav(!document.body.classList.contains("nav-open"));
+  });
+  document.querySelectorAll("[data-nav-close]").forEach(function (el) {
+    el.addEventListener("click", function (e) { e.preventDefault(); setNav(false); });
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") setNav(false); });
+
+  // Dark / light theme.
+  var themeBtn = document.querySelector("[data-theme-toggle]");
+  if (themeBtn) themeBtn.addEventListener("click", function () {
+    var root = document.documentElement;
+    var light = root.getAttribute("data-theme") !== "light";
+    if (light) root.setAttribute("data-theme", "light"); else root.removeAttribute("data-theme");
+    try { localStorage.setItem("shacklog-theme", light ? "light" : "dark"); } catch (err) { /* private mode */ }
   });
 })();

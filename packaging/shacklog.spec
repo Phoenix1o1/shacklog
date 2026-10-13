@@ -7,6 +7,7 @@
 # PyInstaller cannot cross-compile: build the Windows .exe on Windows, the macOS binary
 # on a Mac, the Linux one on Linux (the GitHub Actions workflow does all three).
 
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -31,6 +32,9 @@ hidden = own_modules + collect_submodules("waitress") + [
     "markdown.extensions.sane_lists",
     "markdown.extensions.toc",
 ]
+if sys.platform == "win32":
+    # Tray icon for background mode (shacklog/tray.py).
+    hidden += ["pystray", "pystray._win32", "PIL.Image", "PIL.ImageDraw"]
 
 a = Analysis(  # noqa: F821
     [str(ROOT / "packaging" / "launcher.py")],
@@ -38,6 +42,7 @@ a = Analysis(  # noqa: F821
     datas=[
         (str(WEB / "templates"), "shacklog/web/templates"),
         (str(WEB / "static"), "shacklog/web/static"),
+        (str(ROOT / "shacklog" / "help"), "shacklog/help"),
     ],
     hiddenimports=hidden,
     excludes=["tkinter", "pytest", "PyInstaller"],
@@ -52,7 +57,9 @@ exe = EXE(  # noqa: F821
     a.datas,
     [],
     name="ShackLog",
-    console=True,  # the console window shows the address and stops the server when closed
+    # Windows: no console window; ShackLog runs in the background with a tray icon
+    # (shacklog/tray.py). Linux/macOS: started from a terminal, which shows the address.
+    console=sys.platform != "win32",
     upx=False,
     icon=str(ROOT / "packaging" / "shacklog.ico") if (ROOT / "packaging" / "shacklog.ico").exists() else None,
 )

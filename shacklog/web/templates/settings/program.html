@@ -24,6 +24,25 @@
       {% endif %}
     </section>
 
+    {% if desktop and autostart is not none %}
+    <section class="panel" id="background">
+      <h2>Run in the background</h2>
+      <p>{% if os_name == 'nt' %}On Windows {{ app_name }} has no window of its own: it sits in the
+         notification area next to the clock (click the <b>^</b> arrow if it's hidden). Right-click
+         its icon to open it, open the data folder, or quit.{% else %}{{ app_name }} keeps running
+         after you close the browser tab, until you quit it.{% endif %}
+         Closing the browser never stops it.</p>
+      <p>Start when I sign in: <b>{{ 'on' if autostart else 'off' }}</b>. It then starts quietly,
+         without opening the browser; open it from {{ 'the tray icon or ' if os_name == 'nt' else '' }}a bookmark to
+         <code>{{ request.host_url }}</code>.</p>
+      <form method="post" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="action" value="autostart">
+        <input type="hidden" name="enabled" value="{{ '0' if autostart else '1' }}">
+        <button class="btn{{ '' if autostart else ' btn-primary' }}">{{ 'Don’t start when I sign in' if autostart else 'Start when I sign in' }}</button>
+      </form>
+    </section>
+    {% endif %}
+
     <section class="panel" id="mirror">
       <h2>Second copy of backups</h2>
       <p>{{ app_name }} backs up the database once a day and before every import. It can also
@@ -113,7 +132,8 @@
     {% if can_quit %}
     <section class="panel">
       <h2>Stop {{ app_name }}</h2>
-      <p>Closing the browser tab leaves {{ app_name }} running in the background.</p>
+      <p>Closing the browser tab leaves {{ app_name }} running in the background. Quitting stops
+         the local server and folds recent changes into the database file.</p>
       <form method="post" action="{{ url_for('settings.index') }}">
         {{ csrf() }}<input type="hidden" name="action" value="quit">
         <button class="btn btn-danger">Quit {{ app_name }}</button>

@@ -203,8 +203,10 @@ def cmd_desktop(args) -> int:
     host, port = "127.0.0.1", args.port
     url = f"http://{host}:{port}/"
     if running_instance(port, paths.database):
+        # A second double-click (or a start at sign-in while it already runs): just show it.
         print(f"{APP_NAME} is already running at {url} — opening the browser.")
-        webbrowser.open(url)
+        if not args.no_browser:
+            webbrowser.open(url)
         return 0
     if not port_is_free(host, port):
         port = free_port_near(host, port + 1)
@@ -218,6 +220,16 @@ def cmd_desktop(args) -> int:
     cleanup = prepare_run(db, worker)
     app.config["SHUTDOWN"] = make_shutdown(cleanup)
     app.config["SYNC_WORKER"] = worker
+
+    from shacklog import tray
+
+    if tray.available() and tray.windowed():
+        # Windows executable: no console window; ShackLog lives in the notification area.
+        log.info("%s %s running in the background at %s (data: %s)",
+                 APP_NAME, __version__, url, paths.data_dir)
+        tray.run(url, paths.data_dir, app.config["SHUTDOWN"],
+                 serve=lambda: serve(app, host, port), open_browser=not args.no_browser)
+        return 0
 
     banner([
         f"{APP_NAME} {__version__} is running at {url}",
@@ -476,11 +488,17 @@ COMMANDS = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    from shacklog import tray
+
+    no_console = tray.windowed()
+    tray.fix_std_streams()  # windowed .exe: print() and logging need somewhere to go
     args = build_parser().parse_args(argv)
     try:
         return COMMANDS[args.command](args) or 0
     except RuntimeError as exc:  # e.g. database newer than this program
+        if no_console and args.command in (None, "run"):
+            tray.message_box(str(exc))
         print(f"\n{exc}\n")
-        if getattr(sys, "frozen", False) and os.name == "nt":
+        if getattr(sys, "frozen", False) and os.name == "nt" and not no_console:
             time.sleep(10)  # keep the console window readable on Windows
         return 1

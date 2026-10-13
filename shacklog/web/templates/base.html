@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark light">
+  {# Apply the saved theme before anything paints (dark is the default). #}
+  <script>try{var t=localStorage.getItem("shacklog-theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
   <title>{% block title %}{% endblock %}{% if self.title() %} – {% endif %}{{ app_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
@@ -12,41 +14,52 @@
 {# htmx sends the CSRF token on every request it makes #}
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
 <header class="topbar">
+  <a class="icon-btn nav-toggle" href="#sidenav" aria-controls="sidenav" aria-expanded="false" data-nav-toggle>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
+    <span>Menu</span>
+  </a>
   <a class="brand" href="{{ url_for('main.dashboard') }}">{{ app_name }}<span class="brand-instance">{{ instance_name }}</span></a>
   <form class="topsearch" action="{{ url_for('search.index') }}" method="get" role="search">
     <input type="search" name="q" placeholder="Search everything" value="{{ request.args.get('q', '') if request.endpoint == 'search.index' else '' }}" aria-label="Search everything">
   </form>
   <a class="btn btn-primary topbar-log" href="{{ url_for('qsos.new') }}">Log QSO</a>
-  <details class="menu">
-    <summary aria-label="Menu">Menu</summary>
-    <nav class="menu-panel">
-      {% set nav = [
-        ('Logs', [('qsos.index', 'QSOs'), ('swl.index', 'Listening log'), ('journal.index', 'Journal')]),
-        ('Station', [('repeaters.index', 'Repeaters'), ('radio.index', 'Radio configs'), ('stations.index', 'Stations'), ('equipment.index', 'Equipment'), ('contacts.index', 'Contacts')]),
-        ('Browse', [('kb.index', 'Knowledge base'), ('files.index', 'Library'), ('sdr.index', 'SDR monitor'), ('map.index', 'Map'), ('stats.index', 'Statistics')]),
-      ] %}
-      {% for group, items in nav %}
-      <div class="menu-group">
-        <span class="menu-group-title">{{ group }}</span>
-        {% for endpoint, label in items %}
-        <a href="{{ url_for(endpoint) }}" {% if request.endpoint and request.endpoint.split('.')[0] == endpoint.split('.')[0] %}aria-current="page"{% endif %}>{{ label }}</a>
-        {% endfor %}
-      </div>
-      {% endfor %}
-      <div class="menu-group">
-        <span class="menu-group-title">This instance</span>
-        <a href="{{ url_for('settings.index') }}">Settings</a>
-        <a href="{{ url_for('settings.program') }}">Program &amp; updates</a>
-        <a href="{{ url_for('settings.sync') }}">Sync</a>
-        <a href="{{ url_for('settings.data') }}">Import, export &amp; backups</a>
-        {% if login_enabled %}
-        <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="linklike">Sign out</button></form>
-        {% endif %}
-      </div>
-    </nav>
-  </details>
+  <button type="button" class="icon-btn theme-toggle" data-theme-toggle title="Switch between dark and light" aria-label="Switch between dark and light">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9A7 7 0 0 1 12 3z" fill="currentColor"/></svg>
+  </button>
 </header>
 
+<div class="shell">
+  {# One navigation for every screen size: a sidebar on wide screens, a drawer on phones. #}
+  {% set section = request.endpoint.split('.')[0] if request.endpoint else '' %}
+  {% set nav = [
+    ('Logbook', [('main.dashboard', 'Dashboard'), ('qsos.index', 'QSOs'), ('swl.index', 'Listening log'), ('journal.index', 'Journal')]),
+    ('Station', [('repeaters.index', 'Repeaters'), ('radio.index', 'Radio configs'), ('stations.index', 'Stations'), ('equipment.index', 'Equipment'), ('contacts.index', 'Contacts')]),
+    ('Browse', [('kb.index', 'Knowledge base'), ('files.index', 'Library'), ('sdr.index', 'SDR monitor'), ('map.index', 'Map'), ('stats.index', 'Statistics')]),
+    ('This instance', [('settings.index', 'Settings'), ('settings.program', 'Program & updates'), ('settings.sync', 'Sync'), ('settings.data', 'Import, export & backups'), ('settings.duplicates', 'Duplicates'), ('help.index', 'Help')]),
+  ] %}
+  <nav class="sidenav" id="sidenav" aria-label="Main">
+    <div class="sidenav-head">
+      <strong>{{ app_name }}</strong>
+      <a class="icon-btn" href="#" data-nav-close aria-label="Close menu">✕</a>
+    </div>
+    {% for group, items in nav %}
+    <div class="nav-group">
+      <span class="nav-group-title">{{ group }}</span>
+      {% for endpoint, label in items %}
+      {% set here = (request.endpoint == endpoint) if section in ('settings', 'main') else (section == endpoint.split('.')[0]) %}
+      <a href="{{ url_for(endpoint) }}" {% if here %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% if login_enabled %}
+    <div class="nav-group">
+      <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="linklike">Sign out</button></form>
+    </div>
+    {% endif %}
+  </nav>
+  <div class="nav-backdrop" data-nav-close></div>
+
+  <div class="main-col">
 <main class="page {% block page_class %}{% endblock %}">
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
@@ -60,7 +73,7 @@
   {% block content %}{% endblock %}
 </main>
 
-<footer class="footer">
+  <footer class="footer">
   <span>{{ app_name }} {{ app_version }} · {{ instance_name }}</span>
   {% if sync_status and sync_status.get('configured') %}
   <a href="{{ url_for('settings.sync') }}" class="sync-pill sync-{{ sync_status.get('state', 'idle') }}">
@@ -69,6 +82,8 @@
   {% endif %}
   <span class="footer-utc" title="Coordinated Universal Time">UTC <time id="utc-clock"></time></span>
 </footer>
+  </div>
+</div>
 
 <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>

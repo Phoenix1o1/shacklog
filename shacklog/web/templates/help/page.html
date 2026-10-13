@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<nav class="settings-nav" aria-label="Help pages">
+  {% for slug, (_file, title) in pages.items() %}
+  <a href="{{ url_for('help.index', page=slug) }}" {% if slug == page %}aria-current="page"{% endif %}>{{ title }}</a>
+  {% endfor %}
+</nav>
+<article class="panel prose kb-article help-article">{{ body }}</article>
+{% endblock %}

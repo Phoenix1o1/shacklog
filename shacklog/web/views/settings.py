@@ -38,7 +38,7 @@ from flask import (
 )
 from sqlalchemy import func, literal, select, union_all
 
-from shacklog import __version__, migrations
+from shacklog import APP_NAME, __version__, migrations
 from shacklog.models import (
     ENTITIES,
     SYNC_ORDER,
@@ -580,6 +580,16 @@ def program():
                 h.save_setting("offgrid_sdr_path", value)
                 s.commit()
                 flash("Saved the OFFgrid-SDR location.", "ok")
+        elif action == "autostart" and desktop:
+            from shacklog.services import autostart
+
+            want = request.form.get("enabled") == "1"
+            try:
+                autostart.set_enabled(want)
+                flash(f"{APP_NAME} will {'now' if want else 'no longer'} start when you sign in"
+                      f"{' (in the background)' if want else ''}.", "ok")
+            except OSError as exc:
+                flash(f"Couldn't change that: {exc}", "error")
         elif action == "check_update":
             status = system.repo_status(check_remote=True)
             if status.error:
@@ -618,7 +628,18 @@ def program():
         sdr_found=_sdr_found(),
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
         os_name=os.name,
+        autostart=_autostart_state() if desktop else None,
     )
+
+
+def _autostart_state() -> bool | None:
+    """Is "start when I sign in" on? None if this system can't tell."""
+    from shacklog.services import autostart
+
+    try:
+        return autostart.is_enabled() if autostart.supported() else None
+    except OSError:
+        return None
 
 
 def _sdr_found() -> str | None:

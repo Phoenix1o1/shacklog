@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#18302a"/><path d="M9 4v24M11 4v24" stroke="#cf3f37" stroke-width="1.2"/><path d="M14 10h12M14 16h12M14 22h9" stroke="#f7f9f3" stroke-width="2.4" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ShackLog: a mast radiating waves (same drawing as the tray icon, shacklog/tray.py) -->
+  <rect width="64" height="64" rx="13" fill="#0f1419"/>
+  <g fill="none" stroke="#4fd1a5" stroke-width="4" stroke-linecap="butt">
+    <path d="M25.2 21.9 A8.3 8.3 0 0 1 38.8 21.9"/>
+    <path d="M20.5 18.9 A14.1 14.1 0 0 1 43.5 18.9"/>
+    <path d="M15.8 15.9 A19.8 19.8 0 0 1 48.2 15.9"/>
+    <path d="M32 27 L21.1 56.3 M32 27 L42.9 56.3 M26.6 42.2 H37.4"/>
+  </g>
+  <circle cx="32" cy="27" r="5.5" fill="#4fd1a5"/>
+</svg>
