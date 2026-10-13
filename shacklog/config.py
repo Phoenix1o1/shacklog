@@ -51,6 +51,11 @@ def resolve_data_dir(explicit: str | os.PathLike | None = None) -> Path:
     env = os.environ.get("SHACKLOG_DATA")
     if env:
         return Path(env).expanduser().resolve()
+    return default_data_dir()
+
+
+def default_data_dir() -> Path:
+    """The folder used when neither --data-dir nor SHACKLOG_DATA says otherwise."""
     portable = _executable_dir() / PORTABLE_DIR_NAME
     if portable.is_dir():
         return portable

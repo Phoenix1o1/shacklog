@@ -17,7 +17,7 @@
 #
 #  Installed by deploy/install.sh as a link to /opt/shacklog/deploy/shacklog-ctl, so
 #  `update` also updates this tool.
-# =====================================================================================
+# Keep `esac; exit` on the last line: `update` rewrites this file.
 set -Eeuo pipefail
 
 APP_DIR=/opt/shacklog
@@ -241,4 +241,4 @@ case "${1:-status}" in
   handle-request)  cmd_handle_request ;;
   -h|--help|help)  usage ;;
   *)               usage; exit 2 ;;
-esac
+esac; exit  # line 20

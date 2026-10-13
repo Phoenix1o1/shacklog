@@ -15,12 +15,18 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # 3.11 = Debian 12 / Proxmox host, 3.13 = Debian 13 container, 3.14 = Andrea's PC
+        os: [ubuntu-latest]
         python: ["3.11", "3.13", "3.14"]
+        include:
+          # The PC updater runs these tests on Windows before rebuilding: a test that
+          # only fails there would block every update, so catch it here first.
+          - os: windows-latest
+            python: "3.14"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

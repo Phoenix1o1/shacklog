@@ -243,16 +243,116 @@ def repo_status(check_remote: bool = False, fetch_timeout: int = 60) -> RepoStat
     return status
 
 
-def launch_desktop_update(repo: Path) -> None:
-    """Start the update helper detached; it waits for this process to exit."""
-    pid = str(os.getpid())
+def build_commit() -> str:
+    """The full commit the running executable was built from ("" if unknown or not frozen).
+
+    Written by ``packaging/shacklog.spec`` at build time.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if not getattr(sys, "frozen", False) or not base:
+        return ""
+    try:
+        return (Path(base) / "shacklog" / "BUILD_COMMIT").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _process_image(pid: int) -> str:
+    """Full path of the executable of process ``pid`` on Windows ("" if unknown)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ""
+        try:
+            size = wintypes.DWORD(32768)
+            buf = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+                return ""
+            return buf.value
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:
+        return ""
+
+
+def update_wait_pid() -> int:
+    """The process the update helper must wait for before it replaces the executable.
+
+    A one-file PyInstaller executable runs as two processes: a small launcher that unpacks
+    the program to a temporary folder, and this Python process. The launcher keeps
+    ShackLog.exe open until it has cleaned up after us, so on Windows wait for it
+    (otherwise the helper finds "ShackLog.exe is still running" and the new exe can't be
+    moved into place).
+    """
+    pid = os.getpid()
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        return pid
+    parent = os.getppid()
+    image = _process_image(parent)
+    if image and os.path.normcase(os.path.abspath(image)) == os.path.normcase(
+            os.path.abspath(sys.executable)):
+        return parent
+    return pid
+
+
+def helper_environment(relaunch_args: list[str] | None = None) -> dict[str, str]:
+    """Environment for the update helper and the ShackLog it starts afterwards.
+
+    A frozen ShackLog passes PyInstaller's private variables (``_PYI_*``, ``_MEIPASS2``)
+    to its children; a new ShackLog.exe that inherits them would look for its files in
+    our temporary folder, which is gone by then. ``PYINSTALLER_RESET_ENVIRONMENT`` tells
+    PyInstaller ≥ 6.10 to start afresh; dropping the variables covers older builds.
+    """
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith("_PYI_") and k not in ("_MEIPASS2", "SHACKLOG_RELAUNCH_ARGS")}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    if relaunch_args:
+        env["SHACKLOG_RELAUNCH_ARGS"] = subprocess.list2cmdline(relaunch_args)
+    return env
+
+
+def _helper_copy(repo: Path, name: str) -> Path:
+    """Copy an update script out of git's way and return the copy to run.
+
+    cmd.exe and bash read a script from disk while running it: when ``git pull`` changes
+    the script it is executing, they continue at the same byte offset in the new text.
+    The copy in ``dist/`` (ignored by git, one level down like ``packaging/``) can't
+    change under them.
+    """
+    source = repo / "packaging" / name
+    target = repo / "dist" / f"running-{name}"
+    try:
+        target.parent.mkdir(exist_ok=True)
+        shutil.copyfile(source, target)
+        return target
+    except OSError:
+        return source
+
+
+def launch_desktop_update(repo: Path, rebuild: bool = False,
+                          relaunch_args: list[str] | None = None) -> None:
+    """Start the update helper detached; it waits for this process to exit.
+
+    ``rebuild``: build the executable even if git has nothing new (it is older than the
+    source). ``relaunch_args``: arguments for the ShackLog started afterwards
+    (``--data-dir``), so it opens the same data folder.
+    """
+    pid = str(update_wait_pid())
+    mode = "rebuild" if rebuild else "-"
+    env = helper_environment(relaunch_args)
     if os.name == "nt":
-        script = repo / "packaging" / "update_windows.bat"
+        script = _helper_copy(repo, "update_windows.bat")
         flags = subprocess.CREATE_NEW_CONSOLE  # its own window, visible progress
-        subprocess.Popen(["cmd.exe", "/c", str(script), pid], cwd=str(repo), creationflags=flags)
+        subprocess.Popen(["cmd.exe", "/c", str(script), pid, mode], cwd=str(repo),
+                         creationflags=flags, env=env)
     else:
-        script = repo / "packaging" / "update_unix.sh"
-        subprocess.Popen(["bash", str(script), pid], cwd=str(repo), start_new_session=True)
+        script = _helper_copy(repo, "update_unix.sh")
+        subprocess.Popen(["bash", str(script), pid, mode, *(relaunch_args or [])],
+                         cwd=str(repo), start_new_session=True, env=env)
 
 
 # ---------------------------------------------------------------------------

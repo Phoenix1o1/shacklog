@@ -3,6 +3,29 @@
 Versions follow `major.minor.patch`. The minor number goes up when the database schema
 changes; ShackLog upgrades the database by itself at the next start, after a backup.
 
+## Unreleased
+
+**Fixed** (review of the Windows background mode and automatic updates)
+- An update that changed the update script itself could derail it: Windows (and bash)
+  read a script from disk while running it. The PC now runs a copy of the script from
+  `dist\`, and the hub's `shacklog-ctl` stops reading at its last line.
+- The update window no longer stops at "ShackLog.exe is still running, press a key": it
+  waits for the second process of the one-file executable too, and retries replacing
+  the exe for a few seconds.
+- If an update pulled the code but the tests or the build failed, the old program kept
+  running and every later check said "up to date". The executable now knows the commit
+  it was built from, and the next start (or *Update now*) rebuilds it.
+- After an update, ShackLog restarts on the same data folder when it was started with
+  `--data-dir`.
+- Starting `ShackLog.exe` from a command prompt no longer ties the background program
+  to that window (Ctrl+C there, or closing it, used to stop it).
+- *Start when I sign in* writes a properly quoted command, and leaves out the data folder
+  when it's the usual one.
+- Linux/macOS updater: a failed build starts the previous version again instead of
+  leaving ShackLog stopped.
+- CI runs the tests on Windows too, since the PC updater runs them there before every
+  rebuild.
+
 ## 1.1.0 — 13 October 2026 · ready for service
 
 **New**

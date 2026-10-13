@@ -233,7 +233,10 @@ def cmd_desktop(args) -> int:
 
     with db.transaction() as s:
         auto_update = bool(get_setting(s, "auto_update", True))
-    if updates.update_at_launch(paths.data_dir, auto_update):
+    # Explorer restarts the program without arguments, so only an explicit data folder
+    # has to be handed on (SHACKLOG_DATA and the portable folder resolve by themselves).
+    relaunch = ["--data-dir", str(paths.data_dir)] if getattr(args, "data_dir", None) else []
+    if updates.update_at_launch(paths.data_dir, auto_update, relaunch):
         # The update helper waits for this process to exit, rebuilds and starts again.
         print(f"Updating {APP_NAME} from GitHub before starting…")
         db.dispose()
@@ -250,6 +253,7 @@ def cmd_desktop(args) -> int:
     cleanup = prepare_run(db, worker, paths, check_updates=True)
     app.config["SHUTDOWN"] = make_shutdown(cleanup)
     app.config["SYNC_WORKER"] = worker
+    app.config["RELAUNCH_ARGS"] = relaunch
 
     from shacklog import tray
 
@@ -445,7 +449,10 @@ def cmd_info(args) -> int:
     paths, db = open_database(args)
     with db.engine.connect() as conn:
         version = migrations.get_version(conn)
+    from shacklog.services import system
+
     print(f"{APP_NAME} {__version__}")
+    print(f"Built from      {system.build_commit()[:7] or 'source (not a built executable)'}")
     print(f"Data folder     {paths.data_dir}")
     print(f"Database        {paths.database}")
     print(f"Instance        {db.instance_name} ({db.instance_id})")
@@ -517,11 +524,20 @@ COMMANDS = {
 }
 
 
+#: Arguments that print something for a person at a terminal (see main()).
+CONSOLE_WORDS = {name for name in COMMANDS if name not in (None, "run")} | {
+    "-h", "--help", "--version"}
+
+
 def main(argv: list[str] | None = None) -> int:
     from shacklog import tray
 
     no_console = tray.windowed()
-    tray.fix_std_streams()  # windowed .exe: print() and logging need somewhere to go
+    # Windowed .exe: print() and logging need somewhere to go. Only a maintenance command
+    # typed in a terminal borrows that terminal; desktop mode must not, or Ctrl+C or
+    # closing the terminal later would stop the ShackLog running in the tray.
+    words = set(sys.argv[1:] if argv is None else argv)
+    tray.fix_std_streams(attach=bool(words & CONSOLE_WORDS))
     args = build_parser().parse_args(argv)
     try:
         return COMMANDS[args.command](args) or 0

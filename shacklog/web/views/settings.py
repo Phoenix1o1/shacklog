@@ -623,7 +623,11 @@ def program():
             status = system.repo_status()
             if not status.updatable:
                 abort(400, description="This copy isn't a git working copy, or git is missing.")
-            system.launch_desktop_update(status.path)
+            from shacklog.services import updates
+
+            system.launch_desktop_update(
+                status.path, rebuild=bool(updates.exe_outdated(status.path)),
+                relaunch_args=current_app.config.get("RELAUNCH_ARGS"))
             return _quit(message="update")
         elif action in system.SERVER_REQUESTS and not desktop:
             if action == "restart" and not system.control_available():

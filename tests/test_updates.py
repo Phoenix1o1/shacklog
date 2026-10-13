@@ -1,7 +1,9 @@
 """Automatic updates (desktop at launch, hub status file) and the instance card."""
 
+import hashlib
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -23,8 +25,9 @@ def repos(tmp_path, monkeypatch):
     subprocess.run(["git", "clone", "-q", str(origin), str(local)], check=True)
     _git(origin, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "two: new feature")
     monkeypatch.setattr(system, "repo_root", lambda: local)
-    launched = []
-    monkeypatch.setattr(system, "launch_desktop_update", launched.append)
+    launched = []  # (repo, keyword arguments) of each update started
+    monkeypatch.setattr(system, "launch_desktop_update",
+                        lambda repo, **kw: launched.append((repo, kw)))
     return origin, local, launched
 
 
@@ -32,11 +35,57 @@ def test_update_at_launch_runs_once_per_version(repos, tmp_path):
     origin, local, launched = repos
     data = tmp_path / "data"
     assert updates.update_at_launch(data, enabled=False) is False
-    assert updates.update_at_launch(data, enabled=True) is True and launched == [local]
+    assert updates.update_at_launch(data, enabled=True, relaunch_args=["--data-dir", "X"])
+    assert launched == [(local, {"rebuild": False, "relaunch_args": ["--data-dir", "X"]})]
     info = updates.read_status(data)
     assert info["behind"] == 1 and "two: new feature" in info["log"][0]
     # The update didn't happen (still behind): no second attempt for the same version.
     assert updates.update_at_launch(data, enabled=True) is False and len(launched) == 1
+
+
+def test_stale_executable_is_rebuilt_once(repos, tmp_path, monkeypatch):
+    """Pulled but not rebuilt (tests or build failed): git is current, the exe isn't."""
+    origin, local, launched = repos
+    _git(local, "pull", "-q")
+    data = tmp_path / "data"
+    monkeypatch.setattr(system, "build_commit", lambda: "")  # not a built exe
+    assert updates.update_at_launch(data, enabled=True) is False and not launched
+    monkeypatch.setattr(system, "build_commit", lambda: "0" * 40)  # built from another commit
+    assert updates.exe_outdated(local)
+    assert updates.update_at_launch(data, enabled=True) is True
+    assert launched[0][1]["rebuild"] is True
+    # Same guard as a normal update: no loop if the rebuild fails too.
+    assert updates.update_at_launch(data, enabled=True) is False and len(launched) == 1
+    head = subprocess.run(["git", "-C", str(local), "rev-parse", "HEAD"], capture_output=True,
+                          text=True).stdout.strip()
+    monkeypatch.setattr(system, "build_commit", lambda: head)
+    assert updates.exe_outdated(local) == ""
+
+
+def test_helper_runs_from_a_copy_with_a_clean_environment(tmp_path, monkeypatch):
+    (tmp_path / "packaging").mkdir()
+    (tmp_path / "packaging" / "update_unix.sh").write_text("echo hi\n")
+    copy = system._helper_copy(tmp_path, "update_unix.sh")
+    assert copy == tmp_path / "dist" / "running-update_unix.sh" and copy.read_text() == "echo hi\n"
+    monkeypatch.setenv("_PYI_APPLICATION_HOME_DIR", "C:/temp/_MEI1234")
+    monkeypatch.setenv("_MEIPASS2", "C:/temp/_MEI1234")
+    env = system.helper_environment(["--data-dir", "D:/Ham Radio/ShackLog"])
+    assert "_PYI_APPLICATION_HOME_DIR" not in env and "_MEIPASS2" not in env
+    assert env["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+    assert env["SHACKLOG_RELAUNCH_ARGS"] == '--data-dir "D:/Ham Radio/ShackLog"'
+    assert "SHACKLOG_RELAUNCH_ARGS" not in system.helper_environment()
+    assert system.update_wait_pid() > 0
+
+
+def test_update_script_prefix_is_frozen():
+    """The first 49 lines of update_windows.bat (up to and including ``git pull``) must
+    never change: an older copy of the script that pulls a new one goes on reading the new
+    file at the same byte offset. Change only what comes after the git pull block."""
+    text = (Path(__file__).parents[1] / "packaging" / "update_windows.bat").read_text("ascii")
+    prefix = "\n".join(text.splitlines()[:49])  # line endings don't matter to the check
+    assert prefix.splitlines()[-5].startswith("git pull --ff-only")
+    assert hashlib.sha256(prefix.encode()).hexdigest() == (
+        "477a4d358554856d9986ba56b9441e39bb80ac97f47bb62dc38ec7c978150c4c")
 
 
 def test_update_at_launch_offline_starts_normally(repos, tmp_path):

@@ -58,3 +58,25 @@ def test_tray_icon_image():
 
     img = tray.icon_image(32)
     assert img.size == (32, 32) and img.getpixel((16, 2))[3] == 255
+
+
+def test_autostart_leaves_out_the_default_data_folder(monkeypatch, tmp_path):
+    from shacklog import config
+
+    monkeypatch.setattr(config, "default_data_dir", lambda: tmp_path / "default")
+    assert "--data-dir" not in autostart.launch_command(tmp_path / "default")
+    assert "--data-dir" in autostart.launch_command(tmp_path / "elsewhere")
+    # Windows command line: a path with spaces is quoted, a trailing backslash can't
+    # swallow the closing quote.
+    assert autostart._quote_windows(["C:\\Program Files\\ShackLog.exe", "--data-dir",
+                                     "D:\\Ham radio\\"]) == \
+        '"C:\\Program Files\\ShackLog.exe" --data-dir "D:\\Ham radio\\\\"'
+
+
+def test_only_terminal_commands_borrow_a_console():
+    """Desktop mode (no command, or "run") must not attach to the terminal it was typed
+    in: Ctrl+C there, or closing it, would stop the ShackLog in the tray."""
+    from shacklog.cli import CONSOLE_WORDS
+
+    assert {"where", "info", "backup", "--version", "-h"} <= CONSOLE_WORDS
+    assert "run" not in CONSOLE_WORDS and "--no-browser" not in CONSOLE_WORDS
