@@ -1,5 +1,6 @@
 """Input checks of the Proxmox container creator (deploy/proxmox/validate.sh)."""
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -7,7 +8,11 @@ from pathlib import Path
 import pytest
 
 VALIDATE = Path(__file__).parents[1] / "deploy" / "proxmox" / "validate.sh"
-pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+# Linux-only scripts (they run on the Proxmox host). On Windows "bash" is often the WSL
+# launcher with no Linux installed; and the PC updater runs these tests before every
+# rebuild, so they must never fail there for that reason.
+pytestmark = pytest.mark.skipif(os.name == "nt" or shutil.which("bash") is None,
+                                reason="Linux shell scripts")
 
 
 def run(script: str) -> str:
