@@ -424,7 +424,6 @@ def diff():
     """What changed between configuration ``a`` (before) and ``b`` (after)."""
     from shacklog.services import chirp
 
-    s = h.session()
     a = h.get_or_404(RadioConfig, request.args.get("a", ""))
     b = h.get_or_404(RadioConfig, request.args.get("b", ""))
     result = chirp.diff_channels([channel_dict(c, with_raw=False) for c in config_channels(a.id)],

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-import shutil
 import sqlite3
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -219,3 +218,33 @@ def test_newer_bundle_from_same_source_updates_without_conflict(two, tmp_path):
     with dst_db.transaction() as s:
         assert s.query(Qso).one().name == "Second"
         assert s.query(SyncConflict).count() == 0
+
+
+def test_bundle_carries_no_secrets(tmp_path):
+    """Password hash, sync tokens and the callbook password stay on this instance."""
+    import sqlite3
+    import zipfile
+
+    from shacklog.db import set_setting
+    from shacklog.services import bundle
+    from tests.conftest import build_app
+
+    app, db, paths = build_app(tmp_path / "src")
+    with db.transaction() as s:
+        for key in ("password_hash", "sync_hub_token", "sync_client_token", "callbook_password"):
+            set_setting(s, key, f"SECRET-{key}")
+        set_setting(s, "page_size", 100)
+    out = bundle.export_bundle(db, paths, tmp_path / "b.zip")
+    with zipfile.ZipFile(out) as zf:
+        raw = zf.read(bundle.DATABASE)
+    assert b"SECRET-" not in raw
+    (tmp_path / "x.sqlite3").write_bytes(raw)
+    from contextlib import closing
+
+    with closing(sqlite3.connect(tmp_path / "x.sqlite3")) as conn:
+        assert conn.execute("SELECT value FROM settings WHERE key='page_size'").fetchone()
+    with db.transaction() as s:  # the live database still has them
+        from shacklog.db import get_setting
+
+        assert get_setting(s, "sync_hub_token") == "SECRET-sync_hub_token"
+    db.dispose()

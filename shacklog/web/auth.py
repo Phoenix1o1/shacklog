@@ -39,7 +39,7 @@ bp = Blueprint("auth", __name__)
 #: Endpoints reachable without logging in.
 PUBLIC_ENDPOINTS = {"auth.login", "auth.logout", "static", "health"}
 #: Blueprints with their own authentication (bearer token).
-TOKEN_BLUEPRINTS = {"api_sync"}
+TOKEN_BLUEPRINTS = {"api_sync", "api_ha"}
 
 MIN_PASSWORD_LENGTH = 8
 _failures: dict[str, list[float]] = defaultdict(list)  # ip -> timestamps of failed logins

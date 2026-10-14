@@ -8,6 +8,8 @@ something newer it hands over to the update helper (``packaging/update_windows.b
 ``update_unix.sh``: pull, tests, rebuild, restart) and exits before serving. Offline, or
 when the check fails, it simply starts. A failed update is not retried for the same
 version for :data:`RETRY_AFTER_H` hours, so a broken build can't cause a restart loop.
+An executable older than its source (the code was pulled but the build failed) is
+rebuilt the same way, under the same guard.
 
 **Hub (Proxmox, headless)** — the web service runs unprivileged and can't touch the code,
 so root does the work: a systemd timer runs ``shacklog-ctl check`` a few minutes after
@@ -37,7 +39,9 @@ FETCH_TIMEOUT_S = 20
 
 
 def control_dir(data_dir: Path) -> Path:
-    return Path(data_dir) / "control"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).control
 
 
 def status_file(data_dir: Path) -> Path:
@@ -117,8 +121,28 @@ def recently_attempted(data_dir: Path, target: str) -> bool:
             and time.time() - float(last.get("at", 0)) < RETRY_AFTER_H * 3600)
 
 
-def update_at_launch(data_dir: Path, enabled: bool) -> bool:
-    """Desktop start-up: True if an update was launched (the caller must exit now)."""
+def exe_outdated(repo: Path | None) -> str:
+    """The commit to rebuild for if the running executable is older than its source.
+
+    Happens when an update pulled the code but the tests or the build failed: git is then
+    up to date, yet the program is still the old one. Returns "" when the exe matches, or
+    when this isn't a built executable with a known commit.
+    """
+    from shacklog.services import system
+
+    built = system.build_commit()
+    if not built or repo is None:
+        return ""
+    code, head = system._git(repo, "rev-parse", "HEAD")
+    return head if code == 0 and head and head != built else ""
+
+
+def update_at_launch(data_dir: Path, enabled: bool,
+                     relaunch_args: list[str] | None = None) -> bool:
+    """Desktop start-up: True if an update was launched (the caller must exit now).
+
+    ``relaunch_args`` are passed to the ShackLog the update helper starts afterwards.
+    """
     from shacklog.services import system
 
     if not enabled or os.environ.get("SHACKLOG_NO_AUTO_UPDATE"):
@@ -128,8 +152,11 @@ def update_at_launch(data_dir: Path, enabled: bool) -> bool:
         return False  # downloaded exe, no git, hand-edited files or detached: leave it
     info = check_now(data_dir)
     behind, target = info.get("behind"), info.get("latest") or ""
-    if not behind:
+    stale = exe_outdated(status.path)
+    if not behind and not stale:
         return False
+    if not behind:
+        target = stale[:7]
     if recently_attempted(data_dir, target):
         log.warning("Update to %s was tried recently and didn't finish; starting as is.", target)
         return False
@@ -138,7 +165,10 @@ def update_at_launch(data_dir: Path, enabled: bool) -> bool:
                                            encoding="utf-8")
     except OSError:
         return False  # without the guard a broken update could loop: don't risk it
-    log.info("Update available (%s new change%s): updating before start.",
-             behind, "" if behind == 1 else "s")
-    system.launch_desktop_update(status.path)
+    if behind:
+        log.info("Update available (%s new change%s): updating before start.",
+                 behind, "" if behind == 1 else "s")
+    else:
+        log.info("The program is older than its source (%s): rebuilding before start.", target)
+    system.launch_desktop_update(status.path, rebuild=bool(stale), relaunch_args=relaunch_args)
     return True

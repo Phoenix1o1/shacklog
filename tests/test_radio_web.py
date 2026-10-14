@@ -131,7 +131,7 @@ def test_diff(client, s):
     assert "ISS" in r.text and "MI RU5" in r.text and "tone_mode" in r.text
     same = client.get(f"/radio/diff?a={a.id}&b={a.id}").text
     assert "The two channel lists are the same" in same
-    assert f"/radio/diff" in client.get(f"/radio/{b.id}").text  # "Compare with…" form
+    assert "/radio/diff" in client.get(f"/radio/{b.id}").text  # "Compare with…" form
 
 
 def test_channel_search(client, s):

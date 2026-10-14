@@ -48,7 +48,15 @@ git pull --ff-only || (
   goto :restart_old
 )
 for /f %%c in ('git rev-parse --short HEAD') do set "NEW=%%c"
-if "%OLD%"=="%NEW%" if exist dist\ShackLog.exe (
+rem  Everything above this line must stay exactly as it is. cmd.exe reads a batch file
+rem  from disk as it runs, and an older copy of this script that is busy pulling this
+rem  version continues at the same byte offset in the new text. (ShackLog now runs a
+rem  copy of this script from dist\, which git never changes.)
+rem
+rem  2nd argument "rebuild": ShackLog.exe was built from an older commit than the
+rem  source (an earlier update pulled but couldn't build), so build even if git pull
+rem  brought nothing new.
+if "%OLD%"=="%NEW%" if exist dist\ShackLog.exe if /i not "%~2"=="rebuild" (
   echo Already up to date ^(%NEW%^).
   goto :start
 )
@@ -67,15 +75,20 @@ echo Building ShackLog.exe...
 if exist dist-new rmdir /s /q dist-new
 pyinstaller packaging\shacklog.spec --noconfirm --distpath dist-new --log-level WARN || goto :restart_old
 if not exist dist mkdir dist
-move /y dist-new\ShackLog.exe dist\ShackLog.exe >nul || goto :restart_old
+rem The old ShackLog.exe can still be held open for a moment after the program quit.
+for /l %%i in (1,1,15) do (
+  move /y dist-new\ShackLog.exe dist\ShackLog.exe >nul 2>nul && goto :moved
+  timeout /t 1 /nobreak >nul
+)
+echo Couldn't replace dist\ShackLog.exe ^(still in use?^).
+goto :restart_old
+:moved
 rmdir /s /q dist-new
 echo Build complete.
 
 :start
 echo Starting ShackLog...
-rem Launch through Explorer: the new ShackLog is fully detached from this window, so it
-rem keeps running when this window closes (a plain "start" didn't survive that).
-explorer.exe "%REPO%\dist\ShackLog.exe"
+call :launch
 timeout /t 3 /nobreak >nul
 exit /b 0
 
@@ -83,10 +96,23 @@ exit /b 0
 echo.
 if exist dist\ShackLog.exe (
   echo Starting the previous version again.
-  explorer.exe "%REPO%\dist\ShackLog.exe"
+  call :launch
 )
 :fail
 echo.
 echo Update not completed. Press a key to close this window.
 pause >nul
 exit /b 1
+
+:launch
+rem Through Explorer, ShackLog starts fully detached from this window and with a clean
+rem environment, so it keeps running when this window closes. Explorer can't pass
+rem arguments, so a ShackLog that runs on a data folder given with --data-dir is passed
+rem SHACKLOG_RELAUNCH_ARGS by the program and started with "start" instead
+rem (PYINSTALLER_RESET_ENVIRONMENT, also set by the program, makes it unpack afresh).
+if defined SHACKLOG_RELAUNCH_ARGS (
+  start "" "%REPO%\dist\ShackLog.exe" %SHACKLOG_RELAUNCH_ARGS%
+) else (
+  explorer.exe "%REPO%\dist\ShackLog.exe"
+)
+exit /b 0

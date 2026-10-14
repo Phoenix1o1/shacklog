@@ -288,6 +288,21 @@ def callsign(call: str):
     return callsign_page(normalized, card)
 
 
+@bp.route("/call/<path:call>/callbook", methods=["POST"])
+def callbook_refresh(call: str):
+    """Ask the callbook again about this callsign (button on the callsign page)."""
+    from shacklog.services.callbook import CallbookError
+
+    normalized = norm_call(call)
+    try:
+        entry = h.callbook().lookup(normalized, refresh=True)
+        flash(f"Updated from {entry.source}." if entry else
+              f"{normalized} isn't in {h.callbook().label}.", "ok" if entry else "error")
+    except CallbookError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for(".callsign", call=normalized) + "#callbook")
+
+
 def callsign_page(call: str, card: Contact | None):
     s = h.session()
     qsos_q = h.live(Qso).filter(Qso.call == call)
@@ -315,6 +330,7 @@ def callsign_page(call: str, card: Contact | None):
     latest = qsos[0] if qsos else None
     return render_template(
         "contacts/callsign.html", call=call, card=card, qsos=qsos, heard=heard,
-        repeaters=repeaters, stats=stats, latest=latest,
+        repeaters=repeaters, stats=stats, latest=latest, country=h.country_of(call),
+        book=h.callbook(), book_entry=h.callbook().cached(call),
         linked=links_for(s, "contact", card.id) if card else [],
     )

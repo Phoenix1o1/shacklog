@@ -1,8 +1,8 @@
 """Derived fields filled in when a log entry is saved.
 
 Keeping this in one place means the web form, ADIF import and any future API produce the
-same data: band from frequency, ADIF mode/submode, my-station snapshot, the other
-station's position from its locator, distance and bearing.
+same data: band from frequency, ADIF mode/submode, country from the callsign,
+my-station snapshot, the other station's position from its locator, distance and bearing.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from shacklog.models import Qso, Repeater, Station, SwlEntry
-from shacklog.services import bands, geo
+from shacklog.services import bands, cty, geo
 
 
 def _station_position(station: Station | None) -> tuple[float, float] | None:
@@ -57,6 +57,12 @@ def enrich_qso(session: Session, qso: Qso, is_new: bool, station_changed: bool =
     qso.call = (qso.call or "").replace(" ", "").upper()
     if qso.locator:
         qso.locator = geo.normalize_locator(qso.locator) or qso.locator
+    # Country from the callsign (AD1C's list, services/cty.py), unless already known
+    # (typed, or COUNTRY in an imported ADIF record).
+    if not qso.country:
+        entity = cty.lookup(qso.call)
+        if entity is not None:
+            qso.country = entity.name
 
     # Defaults from the station profile, for new entries only.
     if is_new and station is not None:

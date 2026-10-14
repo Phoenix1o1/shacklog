@@ -167,9 +167,15 @@ shacklog/
   models.py            all ORM models, SyncMixin, SYNC_ORDER, choice lists
   services/
     geo.py             Maidenhead ↔ lat/lon, distance, bearing, bbox, position parsing
+    cty.py             callsign → country/DXCC/zones (AD1C country list, local file)
     bands.py           frequency → band, modes/submodes, default RST, service hints
     adif.py            ADI parser/writer + ADIF ↔ QSO field mapping
     chirp.py           CHIRP CSV read/write, repeater ↔ channel, channel diff
+    repeater_lists.py  RepeaterBook / national / spreadsheet repeater lists → repeater fields
+    tiles.py           map tiles: offline MBTiles files, disk cache, tile server
+    callbook.py        HamQTH / QRZ.com XML lookups with a local cache
+    ha.py              Home Assistant state document + read-only token
+    qsl.py             paper QSL workflow (ADIF QSLSDATE/QSLRDATE in extra_adif), labels
     touchstone.py      .s1p/.s2p parsing, SWR summary, SVG plot
     filestore.py       content-addressed blob store, text extraction
     search.py          FTS5 index maintenance and queries
@@ -187,7 +193,9 @@ shacklog/
     templates/, static/ (css, js, vendored htmx + Leaflet)
 tests/                 pytest
 packaging/             PyInstaller spec, build scripts
-deploy/                Dockerfile, compose, systemd unit, Proxmox guide
+deploy/                install/uninstall, shacklog-ctl, systemd units, Proxmox guide
+  deploy/proxmox/       LXC creator (shacklog-lxc.sh) + its input checks (validate.sh)
+  deploy/docker/        Dockerfile and compose file
 ```
 
 URL convention per section `X`: `/X/` list+filters · `/X/new` · `/X/<id>` ·
@@ -226,9 +234,19 @@ Duplicates), dark "night" theme by default with a light switch, persistent side 
 help (user guide, credits), re-import of a newer bundle from the same source without
 spurious conflicts.
 
-**Phase 2**: DXCC/country from `cty.dat` · callbook lookup (QRZ/HamQTH) with cache ·
-QSL card workflow · offline map tiles · ADX (XML ADIF) · repeater list importers
-(RepeaterBook, IK2ANE-style CSV) · photo thumbnails.
+**Phase 2** (in progress): ~~DXCC/country from `cty.dat`~~ (done: `services/cty.py`,
+reads `cty.csv`/`cty.dat` from `<data>/reference/`, fills `qsos.country`, no schema change) ·
+~~callbook lookup (QRZ/HamQTH) with cache~~ (done: `services/callbook.py`, cache in
+`<data>/reference/callbook.sqlite3`, looks up only on demand) ·
+~~QSL card workflow~~ (done: `services/qsl.py` + `views/qsl.py`, ADIF date/route fields
+in `extra_adif`, labels) · ~~offline map tiles~~ (done: `services/tiles.py`, `/map/tiles/…`:
+MBTiles → cache → tile server; no bulk download, per OSM policy) · ADX (XML ADIF) · repeater list importers
+(~~RepeaterBook, IK2ANE-style CSV~~ done: `services/repeater_lists.py`, header guessing
++ editable mapping) · photo thumbnails.
+
+**Home Assistant** (`NEXT_FEATURE.md`): phase 1 done, `services/ha.py` + `/api/ha/state`
+with its own read-only token (hash stored, never synced). Phase 2 (MQTT, push) waits for a
+real-time source (CAT / WSJT-X on the PC): until then the hub learns of QSOs at sync time.
 
 **Phase 3**: LoTW/eQSL/ClubLog/QRZ upload · WSJT-X UDP logging · CAT via flrig/Hamlib ·
 awards · contest mode with Cabrillo · translations (Italian/French).

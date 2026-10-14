@@ -1,4 +1,5 @@
 {# htmx fragment shown under the callsign while typing #}
+{% from "_ui.html" import country_line %}
 {% if count %}
 <p class="flash flash-warn">Worked <b>{{ call }}</b> {{ count }}× before — last {{ last.time_on|dt }} UTC on {{ last.band or '' }} {{ display_mode(last.mode, last.submode) }}{% if last.name %}, name {{ last.name }}{% endif %}.
   <a href="{{ url_for('contacts.callsign', call=call) }}">History</a></p>
@@ -7,3 +8,5 @@
 {% else %}
 <p class="muted">New callsign.{% if heard %} Heard {{ heard }}× in the listening log.{% endif %}</p>
 {% endif %}
+{% if country %}<p class="small{{ '' if new_country else ' muted' }}">{% if new_country %}<b>New country.</b> {% endif %}{{ country_line(country) }}</p>{% endif %}
+{% include "qsos/_callbook.html" %}

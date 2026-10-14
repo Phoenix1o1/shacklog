@@ -121,6 +121,8 @@
           ('Branch', status.branch),
           ('Last checked', (u.get('checked_at', '')|replace('T', ' ')|replace('Z', ' UTC')) or 'never'),
         ]) }}
+        {% if status.error and not status.commit %}<p class="flash flash-warn small">Git can't read this copy: {{ status.error }}</p>{% endif %}
+        {% if not desktop and control and not u.get('checked_at') %}<p class="small">Not checked yet on this hub: press <b>Check now</b> below. (The 6-hourly timer is switched on by the next update.)</p>{% endif %}
         {% if status.dirty %}<p class="flash flash-warn">Files in this copy were changed by hand. Automatic updates are skipped until that's sorted out (<code>git status</code>).</p>{% endif %}
         {% if desktop %}
         <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="check_update">
@@ -128,7 +130,7 @@
         <form method="post" class="inline-form" onsubmit="return confirm('Update now? {{ app_name }} closes, downloads the latest version from GitHub, rebuilds itself and starts again.');">
           {{ csrf() }}<input type="hidden" name="action" value="update">
           <button class="btn btn-primary">Update now</button></form>
-        <p class="small muted">Runs <code>packaging\update_windows.bat</code>: git pull, tests, rebuild, restart. Your data folder isn't touched.</p>
+        <p class="small muted">Runs <code>{{ update_script }}</code>: git pull, tests, rebuild, restart. Your data folder isn't touched.</p>
         <h3 class="settings-sub">Automatic updates</h3>
         <p class="small">{% if auto_update %}<b>On.</b> At every start, if the computer is online,
           {{ app_name }} checks GitHub and updates itself before opening (a window shows the
@@ -143,7 +145,17 @@
       {% elif status.path and not status.git %}
         <p>This copy comes from GitHub, but <b>git isn't installed</b> on this computer.
            Install it (<code>winget install Git.Git</code> on Windows), then come back here.</p>
+      {% elif in_docker %}
+        {{ facts([('Version', app_name ~ ' ' ~ version)]) }}
+        <p>This hub runs in <b>Docker</b>: the program is in the image, so it updates by
+           rebuilding the image. On the Docker host, in the ShackLog folder:</p>
+        <pre class="code small">git pull
+docker compose -f deploy/docker/docker-compose.yml up -d --build</pre>
+        <p class="small muted">The data (<code>deploy/shacklog-data</code>, mounted at /data) is
+           kept. The dedicated Proxmox container (<code>deploy/proxmox/shacklog-lxc.sh</code>)
+           can check and install updates by itself instead.</p>
       {% else %}
+        {{ facts([('Version', app_name ~ ' ' ~ version)]) }}
         <p>This copy wasn't installed from GitHub, so it can't update itself. Download the
            latest executable from GitHub, or install from a git clone (see README).</p>
       {% endif %}
@@ -175,8 +187,10 @@
       <details><summary>Last server action</summary><pre class="code small" style="white-space: pre-wrap">{{ control_log }}</pre></details>
       {% endif %}
       {% else %}
-      <p class="small">Server controls need the install from <code>deploy/</code> (it adds the
-         <code>shacklog-ctl</code> helper). Restart still works:</p>
+      <p class="small">{% if in_docker %}Docker starts {{ app_name }} again after a restart
+         (<code>restart: unless-stopped</code>); stop it with <code>docker compose stop</code>.
+         {% else %}Server controls need the install from <code>deploy/</code> (it adds the
+         <code>shacklog-ctl</code> helper). Restart still works:{% endif %}</p>
       <form method="post">{{ csrf() }}<input type="hidden" name="action" value="restart"><button class="btn">Restart</button></form>
       {% endif %}
       {% endif %}

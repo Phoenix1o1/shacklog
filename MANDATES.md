@@ -71,7 +71,8 @@ If a directive and the code disagree, the directive wins and the code gets fixed
   old migration.
 - Server-rendered HTML; core actions work **without JavaScript**. htmx and Leaflet only
   for enhancements. **No CDN at runtime** (assets are vendored) so the exe works offline.
-  Map tiles are the only online dependency.
+  Map tiles are the only online dependency, and ShackLog caches them (and serves offline
+  MBTiles files) so the map works offline too.
 - **Mobile-first**: every page is usable at 360 px width.
 - **Security**: login required whenever the server listens beyond localhost; CSRF token on
   every POST form; sync API uses a bearer token; secrets are never logged or synced.

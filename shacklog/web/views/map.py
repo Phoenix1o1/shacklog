@@ -1,5 +1,9 @@
 """Map of QSOs, listening entries, repeaters and stations (Leaflet + OpenStreetMap tiles).
 
+Tiles are served by ShackLog itself (``/map/tiles/z/x/y``, services/tiles.py): from
+offline MBTiles files, the tile cache, or the tile server, so the map works offline for
+the places already viewed, and fully with an MBTiles file.
+
 The page itself is a shell: a JSON config block, the vendored Leaflet and ``js/map.js``.
 Points come from ``/map/data.json?layer=<qso|swl|repeater|station>&<filters>``, which runs
 the **same** ``filtered_query()`` as that section's list page, so "Show on map" from a
@@ -17,11 +21,12 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlencode
 
-from flask import Blueprint, abort, jsonify, render_template, request, url_for
+from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, url_for
+from markupsafe import escape
 from sqlalchemy import and_, or_
 
 from shacklog.models import STATION_KINDS, Qso, Repeater, Station, SwlEntry, choice_label
-from shacklog.services import bands, geo
+from shacklog.services import bands, geo, tiles
 from shacklog.web import helpers as h
 
 bp = Blueprint("map", __name__, url_prefix="/map")
@@ -30,9 +35,6 @@ bp = Blueprint("map", __name__, url_prefix="/map")
 #: a slow link shouldn't download a whole 20-year log to draw a map.
 MAX_POINTS = 3000
 
-TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-TILE_ATTRIBUTION = ('&copy; <a href="https://www.openstreetmap.org/copyright">'
-                    'OpenStreetMap</a> contributors')
 
 #: Query arguments that belong to the map, not to a section's filters.
 MAP_ARGS = {"layer", "page", "sort", "dir"}
@@ -262,7 +264,8 @@ def index():
             home = {"lat": pos[0], "lon": pos[1], "name": station.name}
     config = {
         "dataUrl": url_for(".data"),
-        "tiles": {"url": TILE_URL, "attribution": TILE_ATTRIBUTION, "maxZoom": 19},
+        "tiles": {"url": url_for(".tile", z=0, x=0, y=0).replace("/0/0/0", "/{z}/{x}/{y}"),
+                  "attribution": _attribution(), "maxZoom": tiles.MAX_ZOOM},
         "layers": layers,
         "home": home,
         "focus": _focus(result),
@@ -278,3 +281,38 @@ def index():
                            active=result.active if result else [],
                            errors=result.errors if result else [], back_url=back_url,
                            list_layers=[layer for layer in layers if layer["listUrl"]])
+
+
+# ---------------------------------------------------------------------------
+# Tiles
+# ---------------------------------------------------------------------------
+
+def tile_source() -> tiles.TileSource:
+    """The tile source as configured in Settings › Import, export & backups › Map."""
+    return tiles.TileSource(
+        current_app.config["PATHS"].data_dir, url=h.setting("map_tile_url"),
+        online=bool(h.setting("map_tiles_online")),
+        cache_limit_mb=int(h.setting("map_tile_cache_mb") or 0))
+
+
+def _attribution() -> str:
+    """OpenStreetMap's credit, plus the credits written in the offline files (as text:
+    a file's metadata is not trusted as HTML)."""
+    parts = [tiles.OSM_ATTRIBUTION]
+    for path in tiles.mbtiles_files(current_app.config["PATHS"].data_dir):
+        text = tiles.mbtiles_info(path).get("attribution")
+        if text:
+            parts.append(str(escape(text)))
+    return " · ".join(dict.fromkeys(parts))
+
+
+@bp.route("/tiles/<int:z>/<int:x>/<int:y>")
+def tile(z: int, x: int, y: int):
+    found = tile_source().get(z, x, y)
+    if found is None:
+        abort(404)
+    response = Response(found.data, mimetype=found.content_type)
+    # The browser may keep it a day; ShackLog's own cache keeps it much longer.
+    response.headers["Cache-Control"] = "private, max-age=86400"
+    response.headers["X-Tile-Source"] = found.source
+    return response

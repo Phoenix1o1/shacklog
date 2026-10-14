@@ -33,9 +33,28 @@ DEFAULTS: dict[str, object] = {
     "backup_mirror_keep": 30,
     # --- updates (desktop; the hub uses the control/auto-update flag file) ---
     "auto_update": True,  # check GitHub at start and update before opening
+    # --- callbook (services/callbook.py); local secrets, never synced or logged ---
+    "callbook_service": "",  # "", "hamqth" or "qrz"
+    "callbook_user": None,
+    "callbook_password": None,
+    # --- Home Assistant (services/ha.py) ---
+    "ha_token_hash": None,  # SHA-256 of the read-only token; None = access off
+    # --- country list (services/cty.py) ---
+    "cty_auto_update": True,  # download AD1C's list when missing or a month old
+    # --- map tiles (services/tiles.py) ---
+    "map_tiles_online": True,  # fetch tiles not in the offline files or the cache
+    "map_tile_url": None,  # None = OpenStreetMap; else an http(s) template with {z}/{x}/{y}
+    "map_tile_cache_mb": 500,  # the least recently fetched tiles go beyond this
     # --- OFFgrid-SDR (desktop) ---
     "offgrid_sdr_path": None,  # full path of OFFgrid-SDR's index.html; None = auto-detect
 }
+
+
+#: Settings that are secrets: kept out of bundles (they are copies that travel on USB
+#: sticks), never shown back in a form, never logged. Local backups keep them, so a
+#: restore needs no new password.
+SECRET_KEYS = frozenset({"password_hash", "sync_hub_token", "sync_client_token",
+                         "callbook_password", "ha_token_hash"})
 
 
 def default(key: str):

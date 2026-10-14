@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head %}
+{% from "_ui.html" import facts, record_meta, delete_button, links_panel, tag_list, page_head, country_line %}
+{% from "_forms.html" import csrf %}
 {% block title %}{{ call }}{% endblock %}
 {% block content %}
 {% call page_head(call, ([card.name if card else (latest.name if latest else None), card.qth if card and card.qth else (latest.qth if latest else None)]|select|join(' · ')) or None) %}
@@ -11,6 +12,8 @@
   {% endif %}
   <a class="btn btn-quiet" href="{{ url_for('search.index', q=call) }}">Search everywhere</a>
 {% endcall %}
+
+{% if country %}<p class="muted">{{ country_line(country) }}</p>{% endif %}
 
 <div class="detail-grid">
   <div>
@@ -80,6 +83,23 @@
   </div>
 
   <aside>
+    {% if book_entry or book.configured %}
+    <section class="panel" id="callbook">
+      <h2>Callbook</h2>
+      {% if book_entry %}
+      {{ facts([('Name', book_entry.name), ('QTH', book_entry.qth), ('Locator', book_entry.locator),
+                ('Country', book_entry.country), ('QSL via', book_entry.qsl_via), ('E-mail', book_entry.email)]) }}
+      {% if book_entry.address %}<p class="small">{% for line in book_entry.address %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
+      <p class="small muted">From {{ book_entry.source }}, {{ book_entry.fetched_day }}.</p>
+      {% else %}
+      <p class="muted small">Not looked up yet.</p>
+      {% endif %}
+      {% if book.configured %}
+      <form method="post" action="{{ url_for('contacts.callbook_refresh', call=call) }}">{{ csrf() }}
+        <button class="btn btn-small">{{ 'Look up again' if book_entry else 'Look up in ' ~ book.label }}</button></form>
+      {% endif %}
+    </section>
+    {% endif %}
     <section class="panel">
       <h2>Contact card</h2>
       {% if card %}

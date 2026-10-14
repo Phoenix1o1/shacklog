@@ -1,5 +1,5 @@
 {% extends "settings/_layout.html" %}
-{% from "_ui.html" import page_head %}
+{% from "_ui.html" import page_head, facts %}
 {% from "_forms.html" import csrf %}
 {% set settings_tab = 'data' %}
 {% block title %}Import, export & backups{% endblock %}
@@ -36,15 +36,20 @@
           <input id="file" type="file" name="file" accept=".zip,.sqlite3,.sqlite,.db" required></div>
         <div class="form-actions"><button class="btn btn-primary">Import and merge</button></div>
       </form>
-      {% if desktop %}
-      <h3>Or a file already on this computer</h3>
-      <p class="small muted">Best for big bundles (over a few hundred MB, or when the upload stalls).</p>
+      <h3>Or a file already on this {{ 'computer' if desktop else 'server' }}</h3>
+      <p class="small muted">Best for big bundles (over a few hundred MB, or when the upload stalls).
+        {% if desktop %}Pick one below, or paste its path.{% else %}Copy it into <code>{{ incoming_dir }}</code>
+        first, e.g. on Proxmox: <code>pct push &lt;id&gt; ShackLog-export.zip {{ incoming_dir }}/ShackLog-export.zip --perms 0644</code>,
+        then reload this page.{% endif %}</p>
       {% for path in local_bundles %}
       <form method="post" class="inline-form">
         {{ csrf() }}<input type="hidden" name="action" value="import_path"><input type="hidden" name="path" value="{{ path }}">
         <button class="btn">Import {{ path.replace('\\', '/').rsplit('/', 1)[-1] }}</button>
       </form>
+      {% else %}
+      {% if not desktop %}<p class="small muted">Nothing in {{ incoming_dir }} yet.</p>{% endif %}
       {% endfor %}
+      {% if desktop %}
       <form method="post" class="grid">
         {{ csrf() }}
         <input type="hidden" name="action" value="import_path">
@@ -61,7 +66,89 @@
         <li><a href="{{ url_for('qsos.import_adif') }}">Import ADIF</a><span class="muted">QSOs from Wavelog, QLog, HAMRS, LoTW…</span></li>
         <li><a href="{{ url_for('qsos.export_adi') }}">Export ADIF</a><span class="muted">every QSO, for other loggers and uploads</span></li>
         <li><a href="{{ url_for('repeaters.import_chirp') }}">Import CHIRP CSV</a><span class="muted">repeater lists and radio memories</span></li>
+        <li><a href="{{ url_for('repeaters.import_list') }}">Import a repeater list</a><span class="muted">RepeaterBook, national lists, spreadsheets (CSV)</span></li>
       </ul>
+    </section>
+
+    <section class="panel" id="countries">
+      <h2>Countries (DXCC)</h2>
+      <p>The country, continent and CQ/ITU zones of a callsign come from AD1C's country list (<a href="https://www.country-files.com/">country-files.com</a>). With it, new QSOs get their country filled in, and the callsign box shows the country and the beam heading from your station.</p>
+      {% if cty_info.installed %}
+      {{ facts([('List', cty_info.file), ('Countries', cty_info.countries),
+                ('Version', cty_info.version), ('Installed', cty_info.updated)]) }}
+      {% else %}
+      <p class="flash flash-warn">No country list on this {{ 'computer' if desktop else 'server' }} yet.</p>
+      {% endif %}
+      <form method="post" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="action" value="cty_download">
+        <button class="btn{{ '' if cty_info.installed else ' btn-primary' }}">{{ 'Download the latest list' if cty_info.installed else 'Download the country list' }}</button>
+      </form>
+      <form method="post" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="action" value="cty_auto">
+        <input type="hidden" name="enabled" value="{{ '0' if cty_auto else '1' }}">
+        <button class="btn btn-quiet">{{ 'Stop the monthly download' if cty_auto else 'Download it every month' }}</button>
+      </form>
+      {% if cty_auto %}<p class="small muted">Downloaded again by itself when it is a month old (if this {{ 'computer' if desktop else 'server' }} is online).</p>{% endif %}
+      <details>
+        <summary>Offline? Upload the file instead</summary>
+        <p class="small">Save <code>{{ cty_url }}</code> on a computer that is online, then pick it here (<code>cty.dat</code> works too, without DXCC numbers).</p>
+        <form method="post" enctype="multipart/form-data" class="grid">
+          {{ csrf() }}<input type="hidden" name="action" value="cty_upload">
+          <div class="field w-full"><label for="cty-file">Country list</label>
+            <input id="cty-file" type="file" name="file" accept=".csv,.dat" required></div>
+          <div class="form-actions"><button class="btn">Install this list</button></div>
+        </form>
+      </details>
+      {% if cty_info.installed and qsos_without_country %}
+      <h3>QSOs without a country</h3>
+      <p>{{ qsos_without_country }} QSO{{ '' if qsos_without_country == 1 else 's' }} in the log {{ 'has' if qsos_without_country == 1 else 'have' }} no country. Fill {{ 'it' if qsos_without_country == 1 else 'them' }} in from the callsigns (a backup is made first; countries already set are left alone).</p>
+      <form method="post">
+        {{ csrf() }}<input type="hidden" name="action" value="cty_fill">
+        <button class="btn">Fill in missing countries</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="panel" id="map">
+      <h2>Map</h2>
+      <p>{{ app_name }} serves the map tiles itself: from offline map files first, then from its cache of every tile already seen, then from {{ 'your tile server' if tile_url else 'OpenStreetMap' }} when online.</p>
+      {{ facts([('Tile cache', '%d tiles, %s'|format(tile_cache[0], tile_cache[1]|filesize))]) }}
+
+      <h3>Offline maps</h3>
+      {% if map_files %}
+      <ul class="linked-list">
+        {% for m in map_files %}
+        <li><span><b>{{ m.name }}</b> <span class="muted">{{ m.file }} · {{ m.size|filesize }}{% if m.ok %} · zoom {{ m.minzoom }}–{{ m.maxzoom }}{% else %} · {{ m.error }}{% endif %}</span></span>
+          <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="tiles_remove"><input type="hidden" name="file" value="{{ m.file }}"><button class="btn btn-small btn-quiet">Remove</button></form></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="small muted">None yet. An <code>.mbtiles</code> file (raster, e.g. made with MOBAC for your region) makes the map work with no internet at the zoom levels it holds.</p>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" class="grid">
+        {{ csrf() }}<input type="hidden" name="action" value="tiles_upload">
+        <div class="field w-full"><label for="mbtiles">Add an offline map (.mbtiles)</label>
+          <input id="mbtiles" type="file" name="file" accept=".mbtiles" required></div>
+        <div class="form-actions"><button class="btn">Add this map</button></div>
+      </form>
+      <p class="small muted">Or copy big files into <code>{{ map_dir }}</code>.</p>
+      {% if desktop %}<form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="tiles_open"><button class="btn btn-small btn-quiet">Open that folder</button></form>{% endif %}
+
+      <h3>Where tiles come from</h3>
+      <form method="post" class="grid">
+        {{ csrf() }}<input type="hidden" name="action" value="tiles_settings">
+        <div class="field w-full field-bool"><label><input type="checkbox" name="map_tiles_online" value="1"{% if tiles_online %} checked{% endif %}> Fetch tiles from the internet when they aren't here</label></div>
+        <div class="field w-half"><label for="tile-cache">Keep up to (MB)</label>
+          <input id="tile-cache" name="map_tile_cache_mb" type="number" min="0" max="100000" value="{{ tile_cache_mb }}">
+          <p class="field-help">The tiles fetched longest ago go first. 0 = don't keep any.</p></div>
+        <div class="field w-full"><label for="tile-url">Tile server</label>
+          <input id="tile-url" name="map_tile_url" value="{{ tile_url }}" spellcheck="false" placeholder="Empty: OpenStreetMap (https://tile.openstreetmap.org/{z}/{x}/{y}.png)">
+          <p class="field-help">Only for a server whose terms allow it (your own, or one you subscribe to).</p></div>
+        <div class="form-actions"><button class="btn">Save map settings</button></div>
+      </form>
+      {% if tile_cache[0] %}
+      <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="tiles_clear"><button class="btn btn-quiet">Empty the tile cache</button></form>
+      {% endif %}
     </section>
 
     <section class="panel">

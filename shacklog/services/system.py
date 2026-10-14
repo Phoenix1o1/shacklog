@@ -199,8 +199,12 @@ def _git(repo: Path, *args: str, timeout: int = 60) -> tuple[int, str]:
     # Never wait for a login prompt (terminal or Git Credential Manager window): a check
     # at start-up must fail fast instead.
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
+    # On the hub the code (/opt/shacklog) belongs to root while the web service runs as
+    # "shacklog": git then refuses the repository ("detected dubious ownership"). Trust
+    # this one folder for our own commands; root's shacklog-ctl does the actual updates.
+    trust = ["-c", f"safe.directory={Path(repo).resolve().as_posix()}"]
     try:
-        done = subprocess.run([git, "-C", str(repo), *args], capture_output=True, text=True,
+        done = subprocess.run([git, *trust, "-C", str(repo), *args], capture_output=True, text=True,
                               timeout=timeout, creationflags=flags, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
@@ -228,9 +232,19 @@ def repo_status(check_remote: bool = False, fetch_timeout: int = 60) -> RepoStat
     status = RepoStatus(path=path, git=git_executable() is not None)
     if path is None or not status.git:
         return status
-    _, status.branch = _git(path, "rev-parse", "--abbrev-ref", "HEAD")
-    _, status.commit = _git(path, "rev-parse", "--short", "HEAD")
-    _, status.commit_date = _git(path, "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M")
+    def value(*args: str) -> str:
+        """Output of a git command, or "" if it failed: an error message is never shown
+        as if it were the branch or the commit."""
+        code, out = _git(path, *args)
+        if code != 0:
+            if not status.error:  # keep the first problem: the later ones repeat it
+                status.error = out.splitlines()[0][:300] if out else "git failed"
+            return ""
+        return out
+
+    status.branch = value("rev-parse", "--abbrev-ref", "HEAD")
+    status.commit = value("rev-parse", "--short", "HEAD")
+    status.commit_date = value("log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M")
     code, out = _git(path, "status", "--porcelain", "--untracked-files=no")
     status.dirty = code == 0 and bool(out)
     if check_remote:
@@ -243,21 +257,131 @@ def repo_status(check_remote: bool = False, fetch_timeout: int = 60) -> RepoStat
     return status
 
 
-def launch_desktop_update(repo: Path) -> None:
-    """Start the update helper detached; it waits for this process to exit."""
-    pid = str(os.getpid())
+def build_commit() -> str:
+    """The full commit the running executable was built from ("" if unknown or not frozen).
+
+    Written by ``packaging/shacklog.spec`` at build time.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if not getattr(sys, "frozen", False) or not base:
+        return ""
+    try:
+        return (Path(base) / "shacklog" / "BUILD_COMMIT").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _process_image(pid: int) -> str:
+    """Full path of the executable of process ``pid`` on Windows ("" if unknown)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ""
+        try:
+            size = wintypes.DWORD(32768)
+            buf = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+                return ""
+            return buf.value
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:
+        return ""
+
+
+def update_wait_pid() -> int:
+    """The process the update helper must wait for before it replaces the executable.
+
+    A one-file PyInstaller executable runs as two processes: a small launcher that unpacks
+    the program to a temporary folder, and this Python process. The launcher keeps
+    ShackLog.exe open until it has cleaned up after us, so on Windows wait for it
+    (otherwise the helper finds "ShackLog.exe is still running" and the new exe can't be
+    moved into place).
+    """
+    pid = os.getpid()
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        return pid
+    parent = os.getppid()
+    image = _process_image(parent)
+    if image and os.path.normcase(os.path.abspath(image)) == os.path.normcase(
+            os.path.abspath(sys.executable)):
+        return parent
+    return pid
+
+
+def helper_environment(relaunch_args: list[str] | None = None) -> dict[str, str]:
+    """Environment for the update helper and the ShackLog it starts afterwards.
+
+    A frozen ShackLog passes PyInstaller's private variables (``_PYI_*``, ``_MEIPASS2``)
+    to its children; a new ShackLog.exe that inherits them would look for its files in
+    our temporary folder, which is gone by then. ``PYINSTALLER_RESET_ENVIRONMENT`` tells
+    PyInstaller ≥ 6.10 to start afresh; dropping the variables covers older builds.
+    """
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith("_PYI_") and k not in ("_MEIPASS2", "SHACKLOG_RELAUNCH_ARGS")}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    if relaunch_args:
+        env["SHACKLOG_RELAUNCH_ARGS"] = subprocess.list2cmdline(relaunch_args)
+    return env
+
+
+def _helper_copy(repo: Path, name: str) -> Path:
+    """Copy an update script out of git's way and return the copy to run.
+
+    cmd.exe and bash read a script from disk while running it: when ``git pull`` changes
+    the script it is executing, they continue at the same byte offset in the new text.
+    The copy in ``dist/`` (ignored by git, one level down like ``packaging/``) can't
+    change under them.
+    """
+    source = repo / "packaging" / name
+    target = repo / "dist" / f"running-{name}"
+    try:
+        target.parent.mkdir(exist_ok=True)
+        shutil.copyfile(source, target)
+        return target
+    except OSError:
+        return source
+
+
+def launch_desktop_update(repo: Path, rebuild: bool = False,
+                          relaunch_args: list[str] | None = None) -> None:
+    """Start the update helper detached; it waits for this process to exit.
+
+    ``rebuild``: build the executable even if git has nothing new (it is older than the
+    source). ``relaunch_args``: arguments for the ShackLog started afterwards
+    (``--data-dir``), so it opens the same data folder.
+    """
+    pid = str(update_wait_pid())
+    mode = "rebuild" if rebuild else "-"
+    env = helper_environment(relaunch_args)
     if os.name == "nt":
-        script = repo / "packaging" / "update_windows.bat"
+        script = _helper_copy(repo, "update_windows.bat")
         flags = subprocess.CREATE_NEW_CONSOLE  # its own window, visible progress
-        subprocess.Popen(["cmd.exe", "/c", str(script), pid], cwd=str(repo), creationflags=flags)
+        subprocess.Popen(["cmd.exe", "/c", str(script), pid, mode], cwd=str(repo),
+                         creationflags=flags, env=env)
     else:
-        script = repo / "packaging" / "update_unix.sh"
-        subprocess.Popen(["bash", str(script), pid], cwd=str(repo), start_new_session=True)
+        script = _helper_copy(repo, "update_unix.sh")
+        subprocess.Popen(["bash", str(script), pid, mode, *(relaunch_args or [])],
+                         cwd=str(repo), start_new_session=True, env=env)
 
 
 # ---------------------------------------------------------------------------
 # Server requests (hub)
 # ---------------------------------------------------------------------------
+
+def in_docker() -> bool:
+    """Running from the image in deploy/docker (it sets SHACKLOG_RUNTIME=docker)."""
+    return os.environ.get("SHACKLOG_RUNTIME") == "docker"
+
+
+def update_script_name() -> str:
+    """The helper "Update now" runs on this PC (see launch_desktop_update)."""
+    return r"packaging\update_windows.bat" if os.name == "nt" else "packaging/update_unix.sh"
+
 
 def control_available() -> bool:
     """True when systemd watches the request file (set by deploy/shacklog.service)."""
@@ -265,7 +389,9 @@ def control_available() -> bool:
 
 
 def request_file(data_dir: Path) -> Path:
-    return data_dir / "control" / "request"
+    from shacklog.config import Paths
+
+    return Paths(Path(data_dir)).control / "request"
 
 
 def write_server_request(data_dir: Path, action: str) -> None:
@@ -279,7 +405,9 @@ def write_server_request(data_dir: Path, action: str) -> None:
 
 
 def last_control_log(data_dir: Path, lines: int = 40) -> str:
-    log_path = data_dir / "control" / "last.log"
+    from shacklog.config import Paths
+
+    log_path = Paths(Path(data_dir)).control / "last.log"
     try:
         return "\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:])
     except OSError:

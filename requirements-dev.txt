@@ -1,2 +1,3 @@
 pytest>=8
-pyinstaller>=6
+pyinstaller>=6.10  # PYINSTALLER_RESET_ENVIRONMENT (services/system.py)
+pyyaml>=6  # tests: the Home Assistant YAML ShackLog generates must be valid

@@ -311,8 +311,31 @@ def check_call():
     last = q.order_by(Qso.time_on.desc()).first()
     heard = h.live(SwlEntry).filter(func.upper(SwlEntry.heard) == call).count()
     contact = h.live(Contact).filter(Contact.callsign == call).first()
+    country = h.country_of(call)
+    new_country = bool(country) and not h.live(Qso).filter(
+        Qso.country == country["entity"].name).count()
+    book = h.callbook()
     return render_template("qsos/_call_hint.html", call=call, count=count, last=last,
-                           heard=heard, contact=contact)
+                           heard=heard, contact=contact, country=country,
+                           new_country=new_country, book=book, entry=book.cached(call))
+
+
+@bp.route("/callbook")
+def callbook_lookup():
+    """htmx fragment: ask the callbook about a callsign (only when the user presses
+    *Look up*, so typing doesn't spend lookups)."""
+    from shacklog.services.callbook import CallbookError
+
+    call = (request.args.get("call") or "").replace(" ", "").upper()
+    book = h.callbook()
+    error = None
+    entry = None
+    try:
+        entry = book.lookup(call, refresh=bool(request.args.get("refresh")))
+    except CallbookError as exc:
+        error = str(exc)
+    return render_template("qsos/_callbook.html", call=call, book=book, entry=entry,
+                           error=error, looked_up=True)
 
 
 # ---------------------------------------------------------------------------

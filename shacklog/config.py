@@ -51,6 +51,11 @@ def resolve_data_dir(explicit: str | os.PathLike | None = None) -> Path:
     env = os.environ.get("SHACKLOG_DATA")
     if env:
         return Path(env).expanduser().resolve()
+    return default_data_dir()
+
+
+def default_data_dir() -> Path:
+    """The folder used when neither --data-dir nor SHACKLOG_DATA says otherwise."""
     portable = _executable_dir() / PORTABLE_DIR_NAME
     if portable.is_dir():
         return portable
@@ -59,7 +64,23 @@ def resolve_data_dir(explicit: str | os.PathLike | None = None) -> Path:
 
 @dataclass(frozen=True)
 class Paths:
-    """All filesystem locations derived from the data directory."""
+    """All filesystem locations derived from the data directory — the one place that
+    names them. The data folder holds::
+
+        shacklog.sqlite3    the logbook (the only thing that syncs, with files/)
+        files/              library files, content-addressed (services/filestore.py)
+        backups/            automatic and manual database backups
+        reference/          downloaded reference data, re-creatable: country list,
+                            callbook cache
+        maps/               offline map files (*.mbtiles) and cache/ of viewed tiles
+        incoming/           bundles or databases put here by hand, offered as one-click
+                            imports (how a big bundle reaches the hub: pct push)
+        control/            update status and requests between the program and the
+                            hub's shacklog-ctl (which hard-codes "control" too)
+        tmp/                scratch for uploads and imports, emptied at every start
+        exports/            hub only: archives made by "shacklog-ctl backup"
+        secret.key          web session key        shacklog.log   the program's log
+    """
 
     data_dir: Path
 
@@ -82,6 +103,26 @@ class Paths:
         return self.data_dir / "tmp"
 
     @property
+    def reference(self) -> Path:
+        """Downloaded reference data: country list, callbook cache. Safe to delete."""
+        return self.data_dir / "reference"
+
+    @property
+    def maps(self) -> Path:
+        """Offline map files (*.mbtiles) and the tile cache in ``maps/cache``."""
+        return self.data_dir / "maps"
+
+    @property
+    def incoming(self) -> Path:
+        """Files to import, copied here by hand (Settings › Import, export & backups)."""
+        return self.data_dir / "incoming"
+
+    @property
+    def control(self) -> Path:
+        """Update status and server requests (services/updates.py, system.py)."""
+        return self.data_dir / "control"
+
+    @property
     def secret_key_file(self) -> Path:
         """Flask session signing key. Local to this instance, never synced."""
         return self.data_dir / "secret.key"
@@ -92,7 +133,7 @@ class Paths:
 
     def ensure(self) -> "Paths":
         """Create every folder that must exist. Safe to call repeatedly."""
-        for folder in (self.data_dir, self.files, self.backups, self.tmp):
+        for folder in (self.data_dir, self.files, self.backups, self.tmp, self.incoming):
             folder.mkdir(parents=True, exist_ok=True)
         return self
 

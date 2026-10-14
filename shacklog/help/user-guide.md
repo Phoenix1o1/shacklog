@@ -29,6 +29,44 @@ your phone can browse.
 
 Dates and times are **UTC**. Fields marked with *Now (UTC)* fill in the current time.
 
+### Callbook
+
+Set up HamQTH (free account) or QRZ.com under *Settings › General › Callbook*. While
+logging, what's already known about the callsign shows under it at once; **Look up**
+asks the callbook (typing never does), and **Use these details** fills the empty name,
+QTH, locator and QSL-via boxes. The callsign page shows the full entry with the postal
+address. Answers are kept for a month on this computer (not synced). The password stays
+on this computer: it isn't synced and isn't in bundles.
+
+### QSL cards
+
+*QSL cards* (side menu) follows paper cards:
+
+1. **To send**: QSOs whose *QSL sent* is *Requested* or *Queued*. Tick them, **Print
+   labels** (A4 sheets of 3 × 7 labels, 70 × 42 mm; up to four QSOs per label, routed
+   to the QSL manager when there is one; with the route *Direct* they carry the postal
+   address from the callbook), then **Mark as sent** with the date and route (bureau,
+   direct…).
+2. **Waiting for a card**: sent, not yet confirmed.
+3. **A card arrived**: type the callsign, tick the QSOs on the card, **Mark as received**.
+   Add scans of the front and back: they go to the library, linked to those QSOs.
+
+Dates and routes are saved as the ADIF fields `QSLSDATE`, `QSLRDATE`, `QSL_SENT_VIA` and
+`QSL_RCVD_VIA`, so they come out in ADIF exports and come in with imports.
+
+### Countries
+
+With the country list installed (*Settings › Import, export & backups › Countries*),
+typing a callsign shows its country, continent, CQ and ITU zones, DXCC number and the
+beam heading and distance from your default station, and says **New country** the
+first time. New QSOs get their country filled in (a country you type, or one in an
+imported ADIF file, is kept). *Fill in missing countries* does the same for QSOs logged
+before. *Statistics* counts the countries worked.
+
+The list is AD1C's (country-files.com). ShackLog downloads it by itself when it's
+missing or a month old; offline, download `cty.csv` elsewhere and upload it there.
+Each PC and the hub keep their own copy.
+
 ### Finding things
 
 Every list has a filter bar:
@@ -45,6 +83,11 @@ Every list has a filter bar:
 
 - **Repeaters**: frequencies, shift, tone, position, notes. Import a CHIRP CSV, and
   **export the repeaters near a place** as a CHIRP channel list ready to load into a radio.
+  **Import a repeater list** reads RepeaterBook (JSON or CSV), a national or club list
+  (IK2ANE's, a regional association's…) or any spreadsheet saved as CSV: it shows which
+  column it takes for what (headers in English, Italian or French), you correct what's
+  wrong, and it imports the repeaters that aren't here yet. `145,6125`, `-600`, `-`
+  (usual shift), `88,5`, `D023`, `DMR CC1` and the like are understood.
 - **Radio configs**: keep every CHIRP image (`.img`) and CSV you load into a radio. The
   channels are read and matched to your repeaters; compare two configurations with
   **Diff**; export a channel list back to CHIRP.
@@ -65,9 +108,13 @@ a QSO to a repeater) from the *Links* box on each page.
   stored once even if uploaded twice.
 - **SDR monitor** (desktop only): see below.
 - **Map**: QSOs, listening entries, repeaters and stations with a position, as layers
-  you switch on and off.
-- **Statistics**: QSOs by band, mode, month and year, longest distance per band,
-  most worked callsigns and most used repeaters, per
+  you switch on and off. Every map tile seen once is kept, so places you've looked at
+  show offline too. For a whole area with no internet (a portable trip), add an
+  offline map file (`.mbtiles`, raster, e.g. made with MOBAC) under *Settings › Import,
+  export & backups › Map*; the cache size and the tile server are set there as well.
+  A phone browsing the hub uses the hub's tiles.
+- **Statistics**: QSOs by band, mode, country, month and year, countries worked,
+  longest distance per band, most worked callsigns and most used repeaters, per
   year and per station.
 
 ## SDR monitor (RTL-SDR)
@@ -149,6 +196,24 @@ area next to the clock (click the **^** arrow if the icon is hidden) and opens t
 
 On Linux and macOS ShackLog runs in the terminal you started it from.
 
+## Home Assistant
+
+The hub can feed Home Assistant: QSOs today and in total, the last QSO and what was last
+heard (with frequency, band, mode, country), countries worked, the last backup, when each
+PC last synced, *on the air* (something logged in the last 30 minutes) and *update
+available*.
+
+1. On the hub, *Settings › General › Home Assistant* › **Make a token**. Copy it at once:
+   it is shown only that time (**Make a new token** replaces it; **Turn off** disables it).
+2. In Home Assistant's `secrets.yaml`: `shacklog_token: "Bearer <the token>"`.
+3. Paste the block shown under *For Home Assistant's configuration.yaml* into
+   `configuration.yaml` and restart Home Assistant. The sensors appear as *ShackLog …*.
+
+The token can only read that summary: not the logbook pages, not sync. The hub learns
+about QSOs logged on a PC when that PC syncs (every 15 minutes by default), so an
+automation on a new QSO runs up to that much later. A good alert is *ShackLog hours since
+a PC synced* above 24: a PC that stopped syncing.
+
 ## Updating
 
 ShackLog keeps itself up to date from GitHub. *Settings › Program & updates* shows the
@@ -166,6 +231,28 @@ version, the last check and what's new.
   installs them (backup first, automatic rollback if the new version doesn't start).
   Turn on **Install updates automatically** to let the timer do it. From the container:
   `shacklog-ctl check` and `shacklog-ctl update`.
+- **Docker**: the program is in the image. On the Docker host, in the ShackLog folder:
+  `git pull`, then `docker compose -f deploy/docker/docker-compose.yml up -d --build`.
+  The data folder is kept.
+- **Downloaded executable** (not a git copy): download the new one and replace the file.
+
+## What works where
+
+The logbook is the same everywhere: every log, section, search, filter, map, import,
+export, sync, bundle, backup, country, callbook and QSL feature works on every instance.
+What differs comes from where it runs:
+
+| | Windows PC | Linux / macOS PC | Proxmox hub | Docker |
+|---|---|---|---|---|
+| Opened from | this computer only | this computer only | phone and every PC | phone and every PC |
+| Password | optional | optional | always | always |
+| Runs in the background | tray icon | until you quit | always (service) | always (container) |
+| Start when I sign in | yes | yes | at boot | `restart: unless-stopped` |
+| Updates | at start + **Update now** | at start + **Update now** | timer, **Update and restart**, rollback | rebuild the image |
+| Quit / restart / stop | Quit | Quit | restart, stop | restart |
+| Open data folder, SDR monitor | yes | yes | — (no screen there) | — |
+| Import a big file by path | any path | any path | from its `incoming/` folder | from `incoming/` |
+| Map tiles offline | cache + `.mbtiles` | cache + `.mbtiles` | cache + `.mbtiles`, shared with the phone | same as the hub |
 
 ## Commands
 

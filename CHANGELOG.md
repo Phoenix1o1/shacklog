@@ -3,6 +3,89 @@
 Versions follow `major.minor.patch`. The minor number goes up when the database schema
 changes; ShackLog upgrades the database by itself at the next start, after a backup.
 
+## Unreleased
+
+**New**
+- **Countries.** The callsign box shows the country, continent, CQ/ITU zones, DXCC
+  number and beam heading from your station, and says *New country*. New QSOs get their
+  country filled in, *Settings › Import, export & backups › Countries* fills in older
+  ones, and *Statistics* counts countries worked. The list is AD1C's `cty.csv` from
+  country-files.com, downloaded when missing or a month old (or uploaded by hand). No
+  database change: the hub and the PCs keep syncing whichever version they run.
+- **Import a repeater list** (*Repeaters* and *Settings › Import, export & backups*):
+  RepeaterBook JSON/CSV, national and club lists, any CSV with a header line. A preview
+  shows the column guessed for each field and lets you change it; repeaters already
+  here are skipped; a backup is made first.
+- **QSL cards** (side menu): QSOs to send, printable address labels (A4, 3 × 7),
+  mark sent with date and route, cards waiting, and "a card arrived" with scans of the
+  card stored in the library and linked to the QSOs. Dates and routes are the ADIF
+  fields `QSLSDATE`/`QSLRDATE`/`QSL_SENT_VIA`/`QSL_RCVD_VIA`, so exports carry them.
+- **Callbook** (HamQTH or QRZ.com, *Settings › General*): cached details under the
+  callsign while logging, **Look up** on demand, **Use these details** fills the empty
+  boxes; full entry with postal address on the callsign page; direct-QSL labels carry
+  the address. Answers cached a month in `<data>/reference/callbook.sqlite3`.
+- **Offline map.** ShackLog serves the map tiles itself: from offline map files
+  (`.mbtiles`, *Settings › Import, export & backups › Map*), from a cache of every tile
+  already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With
+  no internet, cached and offline areas still show. Tile server can be changed.
+
+- **Home Assistant** (*Settings › General*): a read-only token and `/api/ha/state` with
+  QSOs today/total, last QSO, last heard, countries, last backup, each PC's last sync,
+  *on the air* and *update available*; a ready-to-paste `configuration.yaml` block.
+  Phase 1 of `NEXT_FEATURE.md` (REST); MQTT is left for when live sources (CAT,
+  WSJT-X) exist.
+
+**Changed**
+- *Proxmox container creator*: every answer is checked as you type it and asked again
+  with the reason when it's wrong: IPv4 address and prefix (not the network or broadcast
+  address), gateway in the same network, address already used by another guest or
+  answering on the network, ID, hostname, cores, memory, disk, VLAN, port, backup time,
+  restore archive. The static address is suggested from the bridge's network.
+- The same features on every kind of instance: the hub (and Docker) can import a big
+  bundle by path too, from the data folder's new `incoming/` folder; *Program & updates*
+  names the right update helper on Linux/macOS and explains Docker updates; a table
+  *What works where* in the user guide.
+- Folders tidied: the data folder's layout is defined in one place, leftovers of
+  interrupted writes are removed at start, the Docker files are in `deploy/docker/`
+  (an existing Docker install keeps its data folder).
+
+- `shacklog-ctl` works on the Proxmox host too: the container creator installs a host
+  helper that runs it in the ShackLog container (`--ct <ID>` to choose one).
+
+**Fixed**
+- Hub, *Program & updates*: the commit and branch showed git's "detected dubious
+  ownership" error (the code belongs to root, the web service runs as `shacklog`). Git
+  now trusts the program's own folder for these read-only checks, and a git problem is
+  shown once as a warning, never in place of a value. A hub that has never checked
+  says to press *Check now*.
+- Docker: the first start failed when Docker created the data folder itself (owned by
+  root, while ShackLog runs as its own user). The container now hands the folder over
+  before starting. CI builds and starts the image.
+- Bundles no longer contain this instance's secrets (web password hash, sync tokens,
+  callbook password): they are removed from the copy of the database that goes in the
+  zip. Local backups still keep them.
+
+**Fixed** (review of the Windows background mode and automatic updates)
+- An update that changed the update script itself could derail it: Windows (and bash)
+  read a script from disk while running it. The PC now runs a copy of the script from
+  `dist\`, and the hub's `shacklog-ctl` stops reading at its last line.
+- The update window no longer stops at "ShackLog.exe is still running, press a key": it
+  waits for the second process of the one-file executable too, and retries replacing
+  the exe for a few seconds.
+- If an update pulled the code but the tests or the build failed, the old program kept
+  running and every later check said "up to date". The executable now knows the commit
+  it was built from, and the next start (or *Update now*) rebuilds it.
+- After an update, ShackLog restarts on the same data folder when it was started with
+  `--data-dir`.
+- Starting `ShackLog.exe` from a command prompt no longer ties the background program
+  to that window (Ctrl+C there, or closing it, used to stop it).
+- *Start when I sign in* writes a properly quoted command, and leaves out the data folder
+  when it's the usual one.
+- Linux/macOS updater: a failed build starts the previous version again instead of
+  leaving ShackLog stopped.
+- CI runs the tests on Windows too, since the PC updater runs them there before every
+  rebuild.
+
 ## 1.1.0 — 13 October 2026 · ready for service
 
 **New**

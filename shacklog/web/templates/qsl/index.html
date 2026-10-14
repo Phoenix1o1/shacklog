@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_head, empty %}
+{% from "_forms.html" import csrf %}
+{% block title %}QSL cards{% endblock %}
+{% block content %}
+{% call page_head("QSL cards", "Paper cards: what to send, what's out, what came back. A QSO is “to send” when its QSL sent is Requested or Queued.") %}{% endcall %}
+
+<nav class="settings-nav" aria-label="QSL lists">
+  {% for key, label in tabs %}
+  <a href="{{ url_for('qsl.index', tab=key) }}" {% if key == tab %}aria-current="page"{% endif %}>{{ label }}{% if key in counts %} ({{ counts[key] }}){% endif %}</a>
+  {% endfor %}
+</nav>
+
+{% if tab == 'arrived' %}
+<form method="get" class="filter-bar qsl-call">
+  <input type="hidden" name="tab" value="arrived">
+  <div class="field"><label for="qsl-call">Callsign on the card</label>
+    <input id="qsl-call" name="call" value="{{ call }}" autofocus spellcheck="false" autocapitalize="characters"></div>
+  <button class="btn btn-primary">Find the QSOs</button>
+</form>
+{% endif %}
+
+{% if qsos %}
+<form method="post" action="{{ url_for('qsl.mark') }}" enctype="multipart/form-data">
+  {{ csrf() }}
+  <input type="hidden" name="back" value="{{ request.full_path }}">
+  <div class="ledger-wrap">
+  <table class="ledger">
+    <thead><tr>
+      <th class="num" aria-label="Line">#</th>
+      <th><input type="checkbox" data-check-all="ids" checked aria-label="Tick or untick all"></th>
+      <th>Callsign</th><th>Date (UTC)</th><th>Band</th><th>Mode</th><th>RST sent</th><th>Via</th>
+      {% if tab == 'waiting' %}<th>Sent</th>{% endif %}
+    </tr></thead>
+    <tbody>
+    {% for q in qsos %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td data-label="Select"><input type="checkbox" name="ids" value="{{ q.id }}" checked aria-label="Select {{ q.call }} {{ q.time_on|day }}"></td>
+      <td class="primary" data-label="Callsign"><a class="rowlink" href="{{ url_for('qsos.view', record_id=q.id) }}"><b>{{ q.call }}</b></a>{% if q.qsl_sent == 'R' %} <span class="muted small">requested</span>{% endif %}</td>
+      <td data-label="Date">{{ q.time_on|dt }}</td>
+      <td data-label="Band">{{ q.band or '' }}</td>
+      <td data-label="Mode">{{ display_mode(q.mode, q.submode) }}</td>
+      <td data-label="RST sent">{{ q.rst_sent or '' }}</td>
+      <td data-label="Via">{{ q.qsl_via or '' }}</td>
+      {% if tab == 'waiting' %}{% set sent = sent_info(q) %}<td data-label="Sent">{{ sent[0] or '' }}{% if sent[1] %} <span class="muted">{{ route_labels.get(sent[1], sent[1]) }}</span>{% endif %}</td>{% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if qsos|length >= limit %}<p class="small muted">The first {{ limit }}, oldest first.</p>{% endif %}
+
+  <fieldset class="form-section">
+    <legend>{{ 'For the ticked QSOs' if tab != 'arrived' else 'Confirmed by this card' }}</legend>
+    <div class="grid">
+      <div class="field w-third"><label for="qsl-date">Date</label>
+        <input id="qsl-date" type="date" name="date" value="{{ today }}"></div>
+      <div class="field w-third"><label for="qsl-route">Route</label>
+        <select id="qsl-route" name="route"><option value="">—</option>
+          {% for code, label in routes %}<option value="{{ code }}"{% if code == 'B' %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></div>
+      {% if tab == 'arrived' %}
+      <div class="field w-half"><label for="qsl-front">Scan of the front (optional)</label>
+        <input id="qsl-front" type="file" name="front" accept="image/*,.pdf"></div>
+      <div class="field w-half"><label for="qsl-back">Scan of the back (optional)</label>
+        <input id="qsl-back" type="file" name="back" accept="image/*,.pdf">
+        <p class="field-help">Stored in the library and linked to these QSOs.</p></div>
+      {% endif %}
+    </div>
+  </fieldset>
+  <div class="form-actions">
+    {% if tab == 'send' %}
+    <button class="btn" name="action" value="labels" formtarget="_blank">Print labels</button>
+    <button class="btn btn-primary" name="action" value="sent">Mark as sent</button>
+    <button class="btn btn-quiet" name="action" value="queue">Queue (card written)</button>
+    {% elif tab == 'waiting' %}
+    <button class="btn btn-primary" name="action" value="received">Mark as received</button>
+    {% else %}
+    <button class="btn btn-primary" name="action" value="received">Mark as received</button>
+    {% endif %}
+  </div>
+</form>
+{% elif tab == 'send' %}
+{{ empty("No cards to send. Set “QSL sent” to Requested or Queued on a QSO (or in an ADIF import) and it appears here.", url_for('qsos.index'), "Open the QSOs") }}
+{% elif tab == 'waiting' %}
+{{ empty("No cards out. QSOs whose card was sent and not yet answered appear here.") }}
+{% elif call %}
+<p class="muted">No QSO with {{ call }} waiting for a card. <a href="{{ url_for('contacts.callsign', call=call) }}">All QSOs with {{ call }}</a></p>
+{% endif %}
+{% endblock %}

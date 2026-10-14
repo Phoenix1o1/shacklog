@@ -15,12 +15,18 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # 3.11 = Debian 12 / Proxmox host, 3.13 = Debian 13 container, 3.14 = Andrea's PC
+        os: [ubuntu-latest]
         python: ["3.11", "3.13", "3.14"]
+        include:
+          # The PC updater runs these tests on Windows before rebuilding: a test that
+          # only fails there would block every update, so catch it here first.
+          - os: windows-latest
+            python: "3.14"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,8 +42,35 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint shell scripts
         run: |
-          shellcheck -S warning deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
-            deploy/proxmox/shacklog-lxc.sh packaging/build_unix.sh packaging/update_unix.sh
+          shellcheck -S warning -x deploy/install.sh deploy/uninstall.sh deploy/shacklog-ctl \
+            deploy/proxmox/shacklog-lxc.sh deploy/proxmox/validate.sh deploy/proxmox/shacklog-ctl-host deploy/docker/entrypoint.sh \
+            packaging/build_unix.sh packaging/update_unix.sh
+
+  docker:
+    # The Docker variant of the hub: the image builds, starts, creates its database in
+    # the volume and answers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the image
+        run: |
+          # No data folder yet, as on a first install: Docker creates it (owned by root).
+          docker compose -f deploy/docker/docker-compose.yml up -d --build
+      - name: Wait for it to answer
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8573/healthz; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8573/healthz | grep -q '"app": *"ShackLog"'
+          test -f deploy/shacklog-data/shacklog.sqlite3
+          # created by the program itself, running as the unprivileged user
+          docker compose -f deploy/docker/docker-compose.yml exec -T shacklog stat -c %U /data/shacklog.sqlite3 | grep -qx shacklog
+          docker compose -f deploy/docker/docker-compose.yml exec -T shacklog sh -c 'grep ^Uid: /proc/1/status' | grep -q '1000'
+          curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8573/login
+      - name: Logs
+        if: always()
+        run: docker compose -f deploy/docker/docker-compose.yml logs --tail 80
 
   executable:
     needs: test

@@ -76,6 +76,73 @@
       {% endif %}
     </section>
 
+    <section class="panel" id="callbook">
+      <h2>Callbook</h2>
+      <p>Who is behind a callsign: name, QTH, locator, postal address for direct QSL cards. While logging, cached details show under the callsign at once; <b>Look up</b> asks the callbook. <a href="https://www.hamqth.com">HamQTH</a> is free with an account; QRZ.com gives full details with an XML subscription.</p>
+      <form method="post" class="grid">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="callbook">
+        <div class="field w-third"><label for="cb-service">Callbook</label>
+          <select id="cb-service" name="callbook_service">
+            {% for value, label in callbook_services %}<option value="{{ value }}"{% if value == callbook.service %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="field w-third"><label for="cb-user">User name</label>
+          <input id="cb-user" name="callbook_user" value="{{ callbook.user }}" autocomplete="off" spellcheck="false"></div>
+        <div class="field w-third"><label for="cb-password">Password</label>
+          <input id="cb-password" type="password" name="callbook_password" autocomplete="new-password" placeholder="{{ 'saved: leave empty to keep' if callbook.password else '' }}"></div>
+        <p class="field-help w-full">Kept on this {{ 'computer' if desktop else 'server' }} only: never synced, never written to the log.</p>
+        <div class="form-actions"><button class="btn btn-primary">Save callbook</button></div>
+      </form>
+      {% set cached = callbook.cache.stats() %}
+      <div class="settings-row">
+        {% if callbook.configured %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="callbook_test"><button class="btn">Test the login</button></form>
+        {% endif %}
+        {% if cached[0] %}
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="callbook_clear"><button class="btn btn-quiet">Empty the cache ({{ cached[0] }} callsign{{ '' if cached[0] == 1 else 's' }})</button></form>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel" id="home-assistant">
+      <h2>Home Assistant</h2>
+      <p>Home Assistant can show this station on its dashboards: QSOs today, the last QSO and
+         what was last heard, countries, the last backup, when each PC last synced, and whether
+         an update is waiting. It reads <code>{{ ha_url }}</code> with a token of its own that
+         can only read that summary.</p>
+      {% if not desktop %}<p class="small muted">QSOs logged on a PC appear here when that PC syncs
+         (every 15 minutes by default), so automations on new QSOs run that much later.</p>
+      {% else %}<p class="small muted">On a PC {{ app_name }} only answers this computer: set this up
+         on the hub, which Home Assistant can reach.</p>{% endif %}
+      {% if new_ha_token %}
+      <div class="flash flash-warn">
+        <p><b>Your token</b> (shown only now: copy it before leaving this page):</p>
+        <pre class="code small">{{ new_ha_token }}</pre>
+        <p class="small">In Home Assistant's <code>secrets.yaml</code>:</p>
+        <pre class="code small">shacklog_token: "Bearer {{ new_ha_token }}"</pre>
+      </div>
+      {% elif ha_on %}
+      <p><b>On.</b> A token exists; it was shown when it was made. Lost it? Make a new one (the
+         old one stops working).</p>
+      {% else %}
+      <p><b>Off.</b> Make a token to let Home Assistant read the summary.</p>
+      {% endif %}
+      <div class="settings-row">
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="ha_token">
+          <button class="btn{{ '' if ha_on else ' btn-primary' }}">{{ 'Make a new token' if ha_on else 'Make a token' }}</button></form>
+        {% if ha_on %}<form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="ha_off">
+          <button class="btn btn-quiet">Turn off Home Assistant access</button></form>{% endif %}
+      </div>
+      {% if ha_on %}
+      <details{% if new_ha_token %} open{% endif %}>
+        <summary>For Home Assistant's <code>configuration.yaml</code></summary>
+        <p class="small">Paste this, put the token in <code>secrets.yaml</code> as above, then restart
+           Home Assistant. Rename the sensors as you like.</p>
+        <pre class="code small">{{ ha_yaml }}</pre>
+      </details>
+      {% endif %}
+    </section>
+
     <section class="panel">
       <h2>Search index</h2>
       <p>Search keeps its own index, updated with every change. If results ever look incomplete, rebuild it from the data. Nothing else changes.</p>

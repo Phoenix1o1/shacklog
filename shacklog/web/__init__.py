@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 VIEW_MODULES = [
     "main",
     "qsos",
+    "qsl",
     "swl",
     "journal",
     "repeaters",
@@ -44,6 +45,7 @@ VIEW_MODULES = [
     "settings",
     "help",
     "api_sync",
+    "api_ha",
 ]
 
 #: Endpoints allowed before first-run setup is complete.
@@ -71,6 +73,9 @@ def create_app(database: Database, paths: Paths, mode: str = "desktop",
         SYNC_STATUS={},  # filled by the sync worker, shown in the footer
     )
 
+    from shacklog.services import cty
+
+    cty.configure(paths.data_dir)  # country lookups read this data folder's country list
     h.register_template_helpers(app)
     app.teardown_appcontext(h.close_session)
     app.register_blueprint(auth.bp)

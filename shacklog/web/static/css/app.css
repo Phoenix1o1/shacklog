@@ -647,3 +647,25 @@ code.path, .facts dd { overflow-wrap: anywhere; }
 .update-log { margin: .4rem 0 0; padding-left: 1.1rem; }
 .update-log li { margin: .1rem 0; }
 .quick-actions + .quick-actions { margin-top: .5rem; }
+
+/* ---------- QSL cards ---------- */
+.qsl-call { display: flex; gap: .75rem; align-items: end; flex-wrap: wrap; margin-bottom: 1rem; }
+.qsl-print { background: #fff; color: #000; margin: 0; }
+.qsl-print-help { font: 14px/1.4 sans-serif; padding: 8px 12px; }
+.qsl-sheet { display: grid; grid-template-columns: repeat(3, 70mm); grid-auto-rows: 42.3mm;
+  width: 210mm; padding: 21.5mm 0 0; }
+.qsl-label { box-sizing: border-box; padding: 3mm 4mm; overflow: hidden; break-inside: avoid;
+  font: 8.5pt/1.25 sans-serif; display: flex; flex-direction: column; gap: 1mm; }
+.qsl-label table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+.qsl-label th { text-align: left; font-weight: 600; border-bottom: .2mm solid #000; }
+.qsl-to { font-size: 10pt; }
+.qsl-address { font-size: 8pt; }
+.qsl-from { margin-top: auto; font-size: 7.5pt; }
+@media screen { .qsl-label { outline: 1px dashed #bbb; } }
+@media print {
+  @page { size: A4; margin: 0; }
+  .no-print { display: none; }
+}
+
+/* ---------- code blocks (Home Assistant YAML, server logs) ---------- */
+pre.code { overflow-x: auto; max-width: 100%; }

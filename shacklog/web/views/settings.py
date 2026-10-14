@@ -36,7 +36,7 @@ from flask import (
     send_file,
     url_for,
 )
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import func, literal, or_, select, union_all
 
 from shacklog import APP_NAME, __version__, migrations
 from shacklog.models import (
@@ -45,6 +45,7 @@ from shacklog.models import (
     TABLES,
     ImportLog,
     Link,
+    Qso,
     SyncConflict,
     SyncPeer,
 )
@@ -82,7 +83,12 @@ def _redirect_self():
 def index():
     s = h.session()
     desktop = current_app.config["MODE"] == "desktop"
-    if request.method == "POST":
+    new_ha_token = None
+    if request.method == "POST" and request.form.get("action") in ("ha_token", "ha_off"):
+        new_ha_token = _ha_action(request.form["action"])
+        if new_ha_token is None:
+            return redirect(url_for(".index") + "#home-assistant")
+    elif request.method == "POST":
         action = request.form.get("action", "")
         if action == "general":
             name = request.form.get("instance_name", "").strip()
@@ -125,6 +131,9 @@ def index():
             h.save_setting("require_login_local", False)
             s.commit()
             flash("Password removed. Only this computer can open ShackLog in desktop mode.", "ok")
+        elif action.startswith("callbook"):
+            _callbook_action(action)
+            return redirect(url_for(".index") + "#callbook")
         elif action == "rebuild_search":
             from shacklog.services import search
 
@@ -155,8 +164,64 @@ def index():
         page_size=h.setting("page_size"), has_password=bool(h.setting("password_hash")),
         require_login_local=bool(h.setting("require_login_local")), about=about,
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
-        min_password=MIN_PASSWORD_LENGTH,
+        min_password=MIN_PASSWORD_LENGTH, callbook=h.callbook(), callbook_services=_callbook_services(),
+        ha_on=bool(h.setting("ha_token_hash")), new_ha_token=new_ha_token,
+        ha_yaml=_ha_yaml(), ha_url=request.host_url.rstrip("/") + "/api/ha/state",
     )
+
+
+def _ha_action(action: str) -> str | None:
+    """Home Assistant token: a new one (returned, to show once) or none (access off)."""
+    from shacklog.services import ha
+
+    if action == "ha_off":
+        h.save_setting("ha_token_hash", None)
+        h.session().commit()
+        flash("Home Assistant access is off: the old token no longer works.", "ok")
+        return None
+    token, digest = ha.new_token()
+    h.save_setting("ha_token_hash", digest)
+    h.session().commit()
+    return token
+
+
+def _ha_yaml() -> str:
+    from shacklog.services import ha
+
+    return ha.yaml_config(request.host_url)
+
+
+def _callbook_services():
+    from shacklog.services.callbook import SERVICES
+
+    return SERVICES
+
+
+def _callbook_action(action: str) -> None:
+    """Settings › General › Callbook: service and login, test, empty the cache."""
+    from shacklog.services.callbook import SERVICES, CallbookError
+
+    if action == "callbook":
+        service = request.form.get("callbook_service", "")
+        if service not in dict(SERVICES):
+            abort(400, description="Unknown callbook.")
+        h.save_setting("callbook_service", service)
+        h.save_setting("callbook_user", request.form.get("callbook_user", "").strip() or None)
+        password = request.form.get("callbook_password", "")
+        if password or not service:  # empty box = keep the saved one
+            h.save_setting("callbook_password", password or None)
+        h.session().commit()
+        flash("Callbook saved." if service else "Callbook turned off.", "ok")
+    elif action == "callbook_test":
+        try:
+            flash(h.callbook().test(), "ok")
+        except CallbookError as exc:
+            flash(f"The callbook doesn't work: {exc}", "error")
+    elif action == "callbook_clear":
+        h.callbook().cache.clear()
+        flash("Emptied the callbook cache.", "ok")
+    else:
+        abort(400, description="Unknown action.")
 
 
 def _quit(message: str = "quit"):
@@ -307,10 +372,16 @@ def data():
             result = _import_upload()
             if result is not None:
                 return result
-        elif action == "import_path" and current_app.config["MODE"] == "desktop":
+        elif action == "import_path":
             result = _import_local_path(request.form.get("path", ""))
             if result is not None:
                 return result
+        elif action.startswith("cty_"):
+            _country_action(action)
+            return redirect(url_for(".data") + "#countries")
+        elif action.startswith("tiles_"):
+            _tiles_action(action)
+            return redirect(url_for(".data") + "#map")
         else:
             abort(400, description="Unknown action.")
         return redirect(url_for(".data"))
@@ -322,12 +393,143 @@ def data():
         except ValueError:
             summary = {}
         history.append((entry, summary if isinstance(summary, dict) else {}))
+    from shacklog.services import cty, tiles
+
+    missing = (h.live(Qso).filter(or_(Qso.country.is_(None), Qso.country == "")).count())
     return render_template(
         "settings/data.html", backups=backup.list_backups(_paths().backups), history=history,
+        cty_info=cty.info(_paths().data_dir), cty_url=cty.SOURCE_URL,
+        cty_auto=bool(h.setting("cty_auto_update")), qsos_without_country=missing,
+        map_files=[tiles.mbtiles_info(p) for p in tiles.mbtiles_files(_paths().data_dir)],
+        map_dir=str(tiles.maps_dir(_paths().data_dir)),
+        tile_cache=tiles.cache_usage(_paths().data_dir),
+        tiles_online=bool(h.setting("map_tiles_online")),
+        tile_url=h.setting("map_tile_url") or "", tile_cache_mb=h.setting("map_tile_cache_mb"),
         desktop=current_app.config["MODE"] == "desktop", local_bundles=_local_bundles(),
-        backups_dir=str(_paths().backups),
+        backups_dir=str(_paths().backups), incoming_dir=str(_paths().incoming),
         keep_daily=h.setting("backup_keep_daily"), keep_other=h.setting("backup_keep_import"),
     )
+
+
+def _country_action(action: str) -> None:
+    """Settings › Data › Countries: get the list, or fill in the QSOs that lack one."""
+    from shacklog.services import backup, cty
+
+    data_dir = _paths().data_dir
+    if action == "cty_download":
+        try:
+            table = cty.download(data_dir)
+        except Exception as exc:  # offline, site down, not a country file
+            flash(f"Couldn't download the country list ({exc}). Download cty.csv from "
+                  f"{cty.SOURCE_URL} on another computer and upload it here.", "error")
+            return
+        flash(f"Downloaded the country list: {len(table)} countries"
+              f"{', version ' + table.version if table.version else ''}.", "ok")
+    elif action == "cty_upload":
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            flash("Choose a cty.csv or cty.dat file first.", "error")
+            return
+        try:
+            table = cty.install(data_dir, upload.read(cty.MAX_SIZE + 1), upload.filename)
+        except ValueError as exc:
+            flash(f"That isn't a country list: {exc}", "error")
+            return
+        flash(f"Installed the country list: {len(table)} countries.", "ok")
+    elif action == "cty_fill":
+        if cty.load(data_dir) is None:
+            flash("Download the country list first.", "error")
+            return
+        backup.create_backup(_db(), _paths().backups, reason="before-country-fill")
+        s = h.session()
+        filled = unknown = 0
+        for qso in h.live(Qso).filter(or_(Qso.country.is_(None), Qso.country == "")).all():
+            entity = cty.lookup(qso.call)
+            if entity is None:
+                unknown += 1
+            else:
+                qso.country = entity.name
+                filled += 1
+        s.commit()
+        flash(f"Filled in the country of {filled} QSO{'s' if filled != 1 else ''}"
+              + (f"; {unknown} callsign{'s' if unknown != 1 else ''} matched no country." if unknown
+                 else ".") + " A backup was made first.", "ok")
+    elif action == "cty_auto":
+        want = request.form.get("enabled") == "1"
+        h.save_setting("cty_auto_update", want)
+        h.session().commit()
+        flash("The country list will " + ("be downloaded again every month." if want
+                                          else "only change when you download or upload it."), "ok")
+    else:
+        abort(400, description="Unknown action.")
+
+
+def _tiles_action(action: str) -> None:
+    """Settings › Data › Map: offline map files, the tile cache, where tiles come from."""
+    import sqlite3
+    from contextlib import closing
+
+    from shacklog.services import tiles
+
+    data_dir = _paths().data_dir
+    folder = tiles.maps_dir(data_dir)
+    if action == "tiles_settings":
+        url = request.form.get("map_tile_url", "").strip() or None
+        if url and not tiles.safe_url(url):
+            flash("A tile server address starts with http:// or https:// and contains "
+                  "{z}, {x} and {y}.", "error")
+            return
+        try:
+            limit = max(0, min(100_000, int(request.form.get("map_tile_cache_mb", 500))))
+        except ValueError:
+            limit = 500
+        h.save_setting("map_tile_url", url)
+        h.save_setting("map_tile_cache_mb", limit)
+        h.save_setting("map_tiles_online", request.form.get("map_tiles_online") == "1")
+        h.session().commit()
+        tiles.prune_cache(data_dir, limit)
+        flash("Saved the map settings.", "ok")
+    elif action == "tiles_clear":
+        removed = tiles.clear_cache(data_dir)
+        flash(f"Emptied the map tile cache ({removed} tiles).", "ok")
+    elif action == "tiles_upload":
+        upload = request.files.get("file")
+        name = Path(upload.filename).name if upload is not None and upload.filename else ""
+        if not name.lower().endswith(".mbtiles"):
+            flash("Choose an .mbtiles file.", "error")
+            return
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = _paths().tmp / f"upload-{uuid.uuid4().hex}.mbtiles"
+        upload.save(tmp)
+        try:
+            # closing(): on Windows an open file can't be deleted or moved.
+            with closing(sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)) as conn:
+                conn.execute("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT 1")
+        except sqlite3.Error:
+            tmp.unlink(missing_ok=True)
+            flash(f"{name} isn't an MBTiles map file.", "error")
+            return
+        target = folder / name
+        os.replace(tmp, target)
+        info = tiles.mbtiles_info(target)
+        if not info["ok"]:
+            flash(f"Installed {name}, but it can't be shown: {info.get('error')}.", "error")
+        else:
+            flash(f"Installed the offline map {info['name']} (zoom {info['minzoom']}–"
+                  f"{info['maxzoom']}).", "ok")
+    elif action == "tiles_remove":
+        name = request.form.get("file", "")
+        target = folder / Path(name).name
+        if target.suffix == ".mbtiles" and target.is_file():
+            target.unlink()
+            flash(f"Removed the offline map {target.name}.", "ok")
+    elif action == "tiles_open" and current_app.config["MODE"] == "desktop":
+        from shacklog.services import system
+
+        folder.mkdir(parents=True, exist_ok=True)
+        system.open_folder(folder)
+    else:
+        abort(400, description="Unknown action.")
 
 
 def _export_bundle():
@@ -365,28 +567,45 @@ def _import_upload():
     return render_template("settings/import_done.html", summary=summary, filename=upload.filename)
 
 
+IMPORTABLE = ("*.zip", "*.sqlite3", "*.sqlite", "*.db")
+
+
 def _local_bundles() -> list[str]:
-    """Bundles waiting next to the program (e.g. ShackLog-import-*.zip in the working copy),
-    offered as one-click imports in desktop mode."""
+    """Files offered as one-click imports: everything in the data folder's incoming/
+    (every instance), plus on a PC ShackLog-*.zip next to the program and in Downloads."""
     from shacklog.services.system import repo_root
 
-    if current_app.config["MODE"] != "desktop":
-        return []
     found: list[str] = []
-    for folder in filter(None, [repo_root(), Path.home() / "Downloads"]):
-        try:
-            found += [str(p) for p in sorted(folder.glob("ShackLog-*.zip"))]
-        except OSError:
-            continue
+    incoming = _paths().incoming
+    if incoming.is_dir():
+        for pattern in IMPORTABLE:
+            found += [str(p) for p in sorted(incoming.glob(pattern))]
+    if current_app.config["MODE"] == "desktop":
+        for folder in filter(None, [repo_root(), Path.home() / "Downloads"]):
+            try:
+                found += [str(p) for p in sorted(folder.glob("ShackLog-*.zip"))]
+            except OSError:
+                continue
     return found
 
 
 def _import_local_path(raw: str):
-    """Desktop only: import a file already on this computer, by path. Browsers can't send
-    very large files reliably, and a path avoids copying a big bundle twice."""
+    """Import a file already on this machine, by path. Browsers can't send very large
+    files reliably, and a path avoids copying a big bundle twice. A PC takes any path;
+    the hub (reachable from the network) only files in its incoming/ folder."""
     from shacklog.services import bundle
 
     path = Path(raw.strip().strip('"')).expanduser()
+    if current_app.config["MODE"] != "desktop":
+        incoming = _paths().incoming.resolve()
+        try:
+            inside = path.resolve().parent == incoming
+        except OSError:
+            inside = False
+        if not inside:
+            flash(f"On the hub, put the file in {incoming} first, then import it from the list.",
+                  "error")
+            return None
     if not raw.strip() or not path.is_file():
         flash(f"No file at “{raw.strip()}”. Paste the full path of the .zip or .sqlite3.", "error")
         return None
@@ -623,7 +842,11 @@ def program():
             status = system.repo_status()
             if not status.updatable:
                 abort(400, description="This copy isn't a git working copy, or git is missing.")
-            system.launch_desktop_update(status.path)
+            from shacklog.services import updates
+
+            system.launch_desktop_update(
+                status.path, rebuild=bool(updates.exe_outdated(status.path)),
+                relaunch_args=current_app.config.get("RELAUNCH_ARGS"))
             return _quit(message="update")
         elif action in system.SERVER_REQUESTS and not desktop:
             if action == "restart" and not system.control_available():
@@ -657,6 +880,7 @@ def program():
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
         os_name=os.name,
         autostart=_autostart_state() if desktop else None,
+        in_docker=system.in_docker(), update_script=system.update_script_name(),
     )
 
 

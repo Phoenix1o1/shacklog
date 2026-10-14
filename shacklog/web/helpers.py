@@ -281,6 +281,45 @@ def f_safe_url(value) -> str:
     return text if text.lower().startswith(("http://", "https://")) else "#"
 
 
+def home_position() -> tuple[float, float] | None:
+    """Where "I" am for beam headings: the default station, else the reference station."""
+    for key in ("default_station_id", "reference_station_id"):
+        station_id = setting(key)
+        station = session().get(Station, station_id) if station_id else None
+        if station is not None and station.deleted_at is None:
+            pos = geo.position_from(station.locator, station.latitude, station.longitude)
+            if pos:
+                return pos
+    return None
+
+
+def country_of(call: str | None) -> dict | None:
+    """Country of a callsign with the beam heading and distance to it from my station.
+
+    ``{"entity": cty.Entity, "bearing": 123.4 | None, "km": 1234.5 | None}``, or None
+    when there is no country list or the callsign doesn't match it.
+    """
+    from shacklog.services import cty
+
+    entity = cty.lookup(call)
+    if entity is None:
+        return None
+    result = {"entity": entity, "bearing": None, "km": None}
+    home = home_position()
+    if home is not None:
+        result["bearing"] = geo.bearing_deg(*home, entity.latitude, entity.longitude)
+        result["km"] = geo.haversine_km(*home, entity.latitude, entity.longitude)
+    return result
+
+
+def callbook():
+    """The callbook set up in Settings › General (it may be "none": see ``configured``)."""
+    from shacklog.services.callbook import Callbook
+
+    return Callbook(current_app.config["PATHS"].data_dir, setting("callbook_service") or "",
+                    setting("callbook_user") or "", setting("callbook_password") or "")
+
+
 def register_template_helpers(app) -> None:
     app.jinja_env.filters.update(
         dt=f_dt, day=f_day, hm=f_time, freq=f_freq, km=f_km, bearing=f_bearing,

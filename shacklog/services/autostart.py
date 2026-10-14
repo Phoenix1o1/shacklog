@@ -26,7 +26,16 @@ MAC_LABEL = "org.shacklog.desktop"
 
 def launch_command(data_dir: str | Path | None = None) -> list[str]:
     """The command that starts this same program, on this same data folder, in the
-    background (no browser)."""
+    background (no browser).
+
+    ``--data-dir`` is left out when the folder is the one the program finds by itself:
+    the command stays short, and an update restarts it the plain way (see
+    packaging/update_windows.bat).
+    """
+    from shacklog.config import default_data_dir
+
+    if data_dir and _same_path(data_dir, default_data_dir()):
+        data_dir = None
     extra = ["--data-dir", str(data_dir)] if data_dir else []
     if getattr(sys, "frozen", False):  # the built executable
         return [sys.executable, *extra, "--no-browser"]
@@ -41,8 +50,16 @@ def launch_command(data_dir: str | Path | None = None) -> list[str]:
     return [str(python), str(launcher), *extra, "--no-browser"]
 
 
+def _same_path(a: str | Path, b: str | Path) -> bool:
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
 def _quote_windows(args: list[str]) -> str:
-    return " ".join(f'"{a}"' if " " in a or not a else a for a in args)
+    """One command line as Windows programs parse it (a trailing backslash inside quotes
+    would otherwise escape the closing quote)."""
+    import subprocess
+
+    return subprocess.list2cmdline(args)
 
 
 def supported() -> bool:

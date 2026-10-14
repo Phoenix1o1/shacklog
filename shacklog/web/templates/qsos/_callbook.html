@@ -1,0 +1,13 @@
+{# Callbook box under the callsign: cached details, or a button that looks them up. #}
+{% if entry %}
+<div class="callbook-box" id="callbook-box">
+  <p class="small"><b>{{ entry.name or entry.call }}</b>{% if entry.qth %} · {{ entry.qth }}{% endif %}{% if entry.locator %} · {{ entry.locator }}{% endif %}{% if entry.qsl_via %} · QSL via {{ entry.qsl_via }}{% endif %} <span class="muted">({{ entry.source }})</span>
+  {% if entry.form_values() %}<button type="button" class="btn btn-small" data-fill='{{ entry.form_values()|tojson }}'>Use these details</button>{% endif %}</p>
+</div>
+{% elif book.configured and call|length >= 3 %}
+<div class="callbook-box" id="callbook-box">
+  {% if error %}<p class="small flash flash-error">{{ error }}</p>
+  {% elif looked_up %}<p class="small muted">{{ call }} isn't in {{ book.label }}.</p>
+  {% else %}<button type="button" class="btn btn-small btn-quiet" hx-get="{{ url_for('qsos.callbook_lookup', call=call) }}" hx-target="#callbook-box" hx-swap="outerHTML">Look up {{ call }} in {{ book.label }}</button>{% endif %}
+</div>
+{% endif %}

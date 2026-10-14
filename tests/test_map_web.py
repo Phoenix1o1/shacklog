@@ -36,12 +36,12 @@ def test_page_renders_on_empty_db(client):
     r = client.get("/map")
     assert r.status_code == 200 and client.get("/map/").status_code == 200
     cfg = _config(r.text)
-    assert cfg["tiles"]["url"] == "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    assert cfg["tiles"]["url"] == "/map/tiles/{z}/{x}/{y}"  # served by ShackLog (tiles.py)
     assert "OpenStreetMap" in cfg["tiles"]["attribution"]
     assert [layer["key"] for layer in cfg["layers"]] == ["qso", "swl", "repeater", "station"]
     assert all(layer["on"] for layer in cfg["layers"])
     assert cfg["home"]["name"] == "Milano"
-    assert "need an internet connection" in r.text
+    assert "show offline too" in r.text
     assert "vendor/leaflet/leaflet.js" in r.text and "js/map.js" in r.text
     for key in ("qso", "swl", "repeater", "station"):
         assert client.get(f"/map/data.json?layer={key}").status_code == 200
@@ -116,3 +116,15 @@ def test_page_with_layer_and_filters(client, s):
     assert "Back to the list" in r.text and "/qsos/?call=IK2" in r.text
     assert "Callsign: <b>IK2*</b>" in r.text
     assert "List what" in r.text
+
+
+def test_tiles_are_served_from_the_cache(client, app):
+    from shacklog.services import tiles
+
+    path = tiles.TileSource(app.config["PATHS"].data_dir).cache_path(3, 4, 2)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"\x89PNG\r\n\x1a\nxx")
+    r = client.get("/map/tiles/3/4/2")
+    assert r.status_code == 200 and r.mimetype == "image/png"
+    assert r.headers["X-Tile-Source"] == "cache"
+    assert client.get("/map/tiles/3/99/2").status_code == 404  # outside the grid

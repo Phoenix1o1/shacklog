@@ -8,7 +8,7 @@
   <ul class="tally">
     <li><b>{{ created|length }}</b><span>repeaters added</span></li>
     <li><b>{{ duplicates|length }}</b><span>already here</span></li>
-    <li><b>{{ simplex|length }}</b><span>simplex or receive-only skipped</span></li>
+    {% if simplex is not none %}<li><b>{{ simplex|length }}</b><span>simplex or receive-only skipped</span></li>{% endif %}
     <li><b>{{ errors|length }}</b><span>unreadable</span></li>
   </ul>
 </section>
@@ -48,5 +48,5 @@
 </section>
 {% endif %}
 <p><a class="btn btn-primary" href="{{ url_for('repeaters.index') }}">Open the repeater list</a>
-   <a class="btn" href="{{ url_for('repeaters.import_chirp') }}">Import another file</a></p>
+   <a class="btn" href="{{ again_url or url_for('repeaters.import_chirp') }}">Import another file</a></p>
 {% endblock %}

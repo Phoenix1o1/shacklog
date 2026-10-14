@@ -73,8 +73,30 @@ def clean_tmp(paths: Paths) -> None:
             pass
 
 
+def clean_leftovers(paths: Paths) -> int:
+    """Remove half-written files an interrupted write can leave behind (they are written
+    under a temporary name and renamed when complete, so these are never real data):
+    ``*.tmp`` in control/ and reference/, ``.….partial`` in backups/, ``.…`` temporary
+    tiles in maps/cache/. Returns how many were removed."""
+    patterns = [(paths.control, "*.tmp"), (paths.reference, "*.tmp"),
+                (paths.backups, ".*.partial"), (paths.maps / "cache", "**/.*")]
+    removed = 0
+    for folder, pattern in patterns:
+        if not folder.is_dir():
+            continue
+        for leftover in folder.glob(pattern):
+            if leftover.is_file():
+                try:
+                    leftover.unlink()
+                    removed += 1
+                except OSError:
+                    pass
+    return removed
+
+
 def startup_maintenance(db: Database, paths: Paths) -> None:
     clean_tmp(paths)
+    clean_leftovers(paths)
     daily_backup(db, paths)
 
 
@@ -92,6 +114,31 @@ def daily_backup(db: Database, paths: Paths) -> None:
             log.info("Daily backup: %s", made.name)
     except Exception:  # a failed backup must not stop the logbook from opening
         log.exception("Daily backup failed")
+
+
+def refresh_country_list(db: Database, paths: Paths) -> None:
+    """Download the country list when it is missing or a month old (best effort)."""
+    from shacklog.services import cty
+
+    try:
+        with db.transaction() as s:
+            wanted = bool(get_setting(s, "cty_auto_update", True))
+        if wanted:
+            cty.update_if_due(paths.data_dir)
+    except Exception:  # never let reference data stop the logbook
+        log.exception("Country list update failed")
+
+
+def prune_tile_cache(db: Database, paths: Paths) -> None:
+    """Keep the map tile cache within its size limit (Settings › Data › Map)."""
+    from shacklog.services import tiles
+
+    try:
+        with db.transaction() as s:
+            limit = int(get_setting(s, "map_tile_cache_mb", 500) or 0)
+        tiles.prune_cache(paths.data_dir, limit)
+    except Exception:
+        log.exception("Tile cache cleanup failed")
 
 
 def port_is_free(host: str, port: int) -> bool:
@@ -186,7 +233,8 @@ def make_shutdown(cleanup, exit_code: int = 0):
 
 def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates: bool = False):
     """Checkpoint now and every few minutes, and on every way the process can end.
-    With ``paths``, the daily backup is also checked every hour while running, and with
+    With ``paths``, the daily backup and the country list are also checked every hour
+    while running, and with
     ``check_updates`` (desktop) GitHub is checked every 6 hours for the "update" badge."""
     from shacklog.services import system, updates
 
@@ -194,12 +242,17 @@ def prepare_run(db: Database, worker, paths: Paths | None = None, check_updates:
 
     def hourly() -> None:
         daily_backup(db, paths)
+        refresh_country_list(db, paths)
+        prune_tile_cache(db, paths)
         hours[0] += 1
         if check_updates and hours[0] % 6 == 0:
             updates.check_now(paths.data_dir)
 
     system.checkpoint(db)
     system.start_checkpoint_timer(db, hourly=hourly if paths is not None else None)
+    if paths is not None:  # in the background: offline or slow, the start isn't held up
+        threading.Thread(target=refresh_country_list, args=(db, paths),
+                         name="shacklog-cty", daemon=True).start()
     cleanup = make_cleanup(worker, db)
     system.on_exit(cleanup)
     return cleanup
@@ -233,7 +286,10 @@ def cmd_desktop(args) -> int:
 
     with db.transaction() as s:
         auto_update = bool(get_setting(s, "auto_update", True))
-    if updates.update_at_launch(paths.data_dir, auto_update):
+    # Explorer restarts the program without arguments, so only an explicit data folder
+    # has to be handed on (SHACKLOG_DATA and the portable folder resolve by themselves).
+    relaunch = ["--data-dir", str(paths.data_dir)] if getattr(args, "data_dir", None) else []
+    if updates.update_at_launch(paths.data_dir, auto_update, relaunch):
         # The update helper waits for this process to exit, rebuilds and starts again.
         print(f"Updating {APP_NAME} from GitHub before starting…")
         db.dispose()
@@ -250,6 +306,7 @@ def cmd_desktop(args) -> int:
     cleanup = prepare_run(db, worker, paths, check_updates=True)
     app.config["SHUTDOWN"] = make_shutdown(cleanup)
     app.config["SYNC_WORKER"] = worker
+    app.config["RELAUNCH_ARGS"] = relaunch
 
     from shacklog import tray
 
@@ -264,7 +321,7 @@ def cmd_desktop(args) -> int:
     banner([
         f"{APP_NAME} {__version__} is running at {url}",
         "",
-        f"Your data (database, library files, backups):",
+        "Your data (database, library files, backups):",
         f"  {paths.data_dir}",
         f"  database file: {paths.database.name}",
         "",
@@ -445,7 +502,10 @@ def cmd_info(args) -> int:
     paths, db = open_database(args)
     with db.engine.connect() as conn:
         version = migrations.get_version(conn)
+    from shacklog.services import system
+
     print(f"{APP_NAME} {__version__}")
+    print(f"Built from      {system.build_commit()[:7] or 'source (not a built executable)'}")
     print(f"Data folder     {paths.data_dir}")
     print(f"Database        {paths.database}")
     print(f"Instance        {db.instance_name} ({db.instance_id})")
@@ -517,11 +577,20 @@ COMMANDS = {
 }
 
 
+#: Arguments that print something for a person at a terminal (see main()).
+CONSOLE_WORDS = {name for name in COMMANDS if name not in (None, "run")} | {
+    "-h", "--help", "--version"}
+
+
 def main(argv: list[str] | None = None) -> int:
     from shacklog import tray
 
     no_console = tray.windowed()
-    tray.fix_std_streams()  # windowed .exe: print() and logging need somewhere to go
+    # Windowed .exe: print() and logging need somewhere to go. Only a maintenance command
+    # typed in a terminal borrows that terminal; desktop mode must not, or Ctrl+C or
+    # closing the terminal later would stop the ShackLog running in the tray.
+    words = set(sys.argv[1:] if argv is None else argv)
+    tray.fix_std_streams(attach=bool(words & CONSOLE_WORDS))
     args = build_parser().parse_args(argv)
     try:
         return COMMANDS[args.command](args) or 0

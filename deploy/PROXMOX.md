@@ -56,6 +56,14 @@ In the style of the Proxmox VE Helper Scripts it offers:
 | Unprivileged + nesting | yes | Nesting lets systemd work properly inside the container. |
 | Start at boot | yes | |
 
+Every answer is checked as you type it, and a wrong one is asked again with the reason
+(nothing is created until the summary): the address must be a valid IPv4 host address
+with its prefix (`192.168.1.50/24`, not the network or broadcast address), suggested
+from the bridge's own network; the gateway must be in the same network; an address
+already set on another container or VM, or answering ping, is flagged before it is
+used. Container ID, hostname, cores (up to the host's), memory, disk, VLAN (1–4094),
+port (1024–65535), backup time and the restore archive are checked the same way.
+
 Then it asks:
 
 - **GitHub token** (the repository is private): github.com › Settings › Developer settings ›
@@ -77,7 +85,26 @@ other instances** and generate the token for your PCs.
 
 ## 4. Day to day — `shacklog-ctl`
 
-From the host: `pct enter <ID>`, then:
+`shacklog-ctl` lives **inside the container**. On the Proxmox host, the container
+creator also installs a host `shacklog-ctl` that runs the same command in the container
+tagged `shacklog`, so either works:
+
+```bash
+shacklog-ctl status                 # on the host (or inside the container)
+shacklog-ctl --ct 105 update        # if there is more than one ShackLog container
+pct enter <ID>                      # or work inside the container directly
+```
+
+A host that got its container before this helper existed: install it once from your
+clone (after `git pull`):
+
+```bash
+ln -sf "$PWD/deploy/proxmox/shacklog-ctl-host" /usr/local/bin/shacklog-ctl
+```
+
+(It is a link into the clone: keep the clone, or run the line again from a new one.)
+
+Commands:
 
 | Command | What it does |
 |---|---|
@@ -130,5 +157,5 @@ isolation), the installer refuses to run on the host, and containers get `nestin
 
 ## Docker (alternative)
 
-`deploy/Dockerfile` and `deploy/docker-compose.yml` still work for a Docker host. The
+`deploy/docker/Dockerfile` and `deploy/docker/docker-compose.yml` still work for a Docker host. The
 LXC route above is the recommended one on Proxmox.

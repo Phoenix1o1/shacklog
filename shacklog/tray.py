@@ -50,16 +50,16 @@ def windowed() -> bool:
     return _started_windowed
 
 
-def fix_std_streams() -> None:
+def fix_std_streams(attach: bool = True) -> None:
     """Give print() and logging somewhere to write when there is no console.
 
-    A command typed in a terminal (``ShackLog.exe where``) attaches to that terminal so its
-    output is still visible; otherwise output goes to the null device (the log file in the
-    data folder still gets everything).
+    With ``attach``, a command typed in a terminal (``ShackLog.exe where``) attaches to
+    that terminal so its output is still visible; otherwise output goes to the null device
+    (the log file in the data folder still gets everything).
     """
     if not windowed() or (sys.stdout is not None and sys.stderr is not None):
         return
-    if os.name == "nt":
+    if attach and os.name == "nt":
         try:
             if ctypes.windll.kernel32.AttachConsole(-1):  # ATTACH_PARENT_PROCESS
                 sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace")
