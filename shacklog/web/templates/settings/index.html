@@ -104,6 +104,45 @@
       </div>
     </section>
 
+    <section class="panel" id="home-assistant">
+      <h2>Home Assistant</h2>
+      <p>Home Assistant can show this station on its dashboards: QSOs today, the last QSO and
+         what was last heard, countries, the last backup, when each PC last synced, and whether
+         an update is waiting. It reads <code>{{ ha_url }}</code> with a token of its own that
+         can only read that summary.</p>
+      {% if not desktop %}<p class="small muted">QSOs logged on a PC appear here when that PC syncs
+         (every 15 minutes by default), so automations on new QSOs run that much later.</p>
+      {% else %}<p class="small muted">On a PC {{ app_name }} only answers this computer: set this up
+         on the hub, which Home Assistant can reach.</p>{% endif %}
+      {% if new_ha_token %}
+      <div class="flash flash-warn">
+        <p><b>Your token</b> (shown only now: copy it before leaving this page):</p>
+        <pre class="code small">{{ new_ha_token }}</pre>
+        <p class="small">In Home Assistant's <code>secrets.yaml</code>:</p>
+        <pre class="code small">shacklog_token: "Bearer {{ new_ha_token }}"</pre>
+      </div>
+      {% elif ha_on %}
+      <p><b>On.</b> A token exists; it was shown when it was made. Lost it? Make a new one (the
+         old one stops working).</p>
+      {% else %}
+      <p><b>Off.</b> Make a token to let Home Assistant read the summary.</p>
+      {% endif %}
+      <div class="settings-row">
+        <form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="ha_token">
+          <button class="btn{{ '' if ha_on else ' btn-primary' }}">{{ 'Make a new token' if ha_on else 'Make a token' }}</button></form>
+        {% if ha_on %}<form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="action" value="ha_off">
+          <button class="btn btn-quiet">Turn off Home Assistant access</button></form>{% endif %}
+      </div>
+      {% if ha_on %}
+      <details{% if new_ha_token %} open{% endif %}>
+        <summary>For Home Assistant's <code>configuration.yaml</code></summary>
+        <p class="small">Paste this, put the token in <code>secrets.yaml</code> as above, then restart
+           Home Assistant. Rename the sensors as you like.</p>
+        <pre class="code small">{{ ha_yaml }}</pre>
+      </details>
+      {% endif %}
+    </section>
+
     <section class="panel">
       <h2>Search index</h2>
       <p>Search keeps its own index, updated with every change. If results ever look incomplete, rebuild it from the data. Nothing else changes.</p>

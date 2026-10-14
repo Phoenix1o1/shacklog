@@ -37,6 +37,8 @@ DEFAULTS: dict[str, object] = {
     "callbook_service": "",  # "", "hamqth" or "qrz"
     "callbook_user": None,
     "callbook_password": None,
+    # --- Home Assistant (services/ha.py) ---
+    "ha_token_hash": None,  # SHA-256 of the read-only token; None = access off
     # --- country list (services/cty.py) ---
     "cty_auto_update": True,  # download AD1C's list when missing or a month old
     # --- map tiles (services/tiles.py) ---
@@ -52,7 +54,7 @@ DEFAULTS: dict[str, object] = {
 #: sticks), never shown back in a form, never logged. Local backups keep them, so a
 #: restore needs no new password.
 SECRET_KEYS = frozenset({"password_hash", "sync_hub_token", "sync_client_token",
-                         "callbook_password"})
+                         "callbook_password", "ha_token_hash"})
 
 
 def default(key: str):

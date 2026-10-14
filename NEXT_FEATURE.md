@@ -1,5 +1,16 @@
 # Feature Proposal: HomeAssistant Integration
 
+> **Status (14 Oct 2026):** Phase 1 is implemented: `shacklog/services/ha.py`,
+> `shacklog/web/views/api_ha.py`, *Settings › General › Home Assistant*, user guide
+> section *Home Assistant*. Changes from this proposal: (1) a **separate read-only token**
+> (stored as a hash), not the sync token, which can change the logbook; (2) **one**
+> endpoint, `GET /api/ha/state`, feeding every sensor in one poll, with a generated
+> `configuration.yaml` block; (3) sync status as the **hub** sees it (each PC's last
+> sync; `oldest_hours` to alert on), since Home Assistant reaches the hub, not the PCs.
+> Phase 2 (MQTT) is deferred: the hub learns of QSOs only when a PC syncs, so push adds
+> no immediacy until a live source (CAT, WSJT-X UDP) exists; hook point then is the
+> change stamping in `db.py` (covers form, imports and sync), not `qso_io.py`.
+
 ## 1. Objective
 To provide a seamless bridge between ShackLog and HomeAssistant (HA), allowing users to monitor logbook status, sync activity, and radio operations via HA dashboards and automate smart-home actions based on radio activity.
 

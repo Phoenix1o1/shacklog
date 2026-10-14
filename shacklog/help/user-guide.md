@@ -196,6 +196,24 @@ area next to the clock (click the **^** arrow if the icon is hidden) and opens t
 
 On Linux and macOS ShackLog runs in the terminal you started it from.
 
+## Home Assistant
+
+The hub can feed Home Assistant: QSOs today and in total, the last QSO and what was last
+heard (with frequency, band, mode, country), countries worked, the last backup, when each
+PC last synced, *on the air* (something logged in the last 30 minutes) and *update
+available*.
+
+1. On the hub, *Settings › General › Home Assistant* › **Make a token**. Copy it at once:
+   it is shown only that time (**Make a new token** replaces it; **Turn off** disables it).
+2. In Home Assistant's `secrets.yaml`: `shacklog_token: "Bearer <the token>"`.
+3. Paste the block shown under *For Home Assistant's configuration.yaml* into
+   `configuration.yaml` and restart Home Assistant. The sensors appear as *ShackLog …*.
+
+The token can only read that summary: not the logbook pages, not sync. The hub learns
+about QSOs logged on a PC when that PC syncs (every 15 minutes by default), so an
+automation on a new QSO runs up to that much later. A good alert is *ShackLog hours since
+a PC synced* above 24: a PC that stopped syncing.
+
 ## Updating
 
 ShackLog keeps itself up to date from GitHub. *Settings › Program & updates* shows the

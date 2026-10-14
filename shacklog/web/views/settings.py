@@ -83,7 +83,12 @@ def _redirect_self():
 def index():
     s = h.session()
     desktop = current_app.config["MODE"] == "desktop"
-    if request.method == "POST":
+    new_ha_token = None
+    if request.method == "POST" and request.form.get("action") in ("ha_token", "ha_off"):
+        new_ha_token = _ha_action(request.form["action"])
+        if new_ha_token is None:
+            return redirect(url_for(".index") + "#home-assistant")
+    elif request.method == "POST":
         action = request.form.get("action", "")
         if action == "general":
             name = request.form.get("instance_name", "").strip()
@@ -160,7 +165,30 @@ def index():
         require_login_local=bool(h.setting("require_login_local")), about=about,
         can_quit=desktop and bool(current_app.config.get("SHUTDOWN")),
         min_password=MIN_PASSWORD_LENGTH, callbook=h.callbook(), callbook_services=_callbook_services(),
+        ha_on=bool(h.setting("ha_token_hash")), new_ha_token=new_ha_token,
+        ha_yaml=_ha_yaml(), ha_url=request.host_url.rstrip("/") + "/api/ha/state",
     )
+
+
+def _ha_action(action: str) -> str | None:
+    """Home Assistant token: a new one (returned, to show once) or none (access off)."""
+    from shacklog.services import ha
+
+    if action == "ha_off":
+        h.save_setting("ha_token_hash", None)
+        h.session().commit()
+        flash("Home Assistant access is off: the old token no longer works.", "ok")
+        return None
+    token, digest = ha.new_token()
+    h.save_setting("ha_token_hash", digest)
+    h.session().commit()
+    return token
+
+
+def _ha_yaml() -> str:
+    from shacklog.services import ha
+
+    return ha.yaml_config(request.host_url)
 
 
 def _callbook_services():

@@ -174,6 +174,7 @@ shacklog/
     repeater_lists.py  RepeaterBook / national / spreadsheet repeater lists → repeater fields
     tiles.py           map tiles: offline MBTiles files, disk cache, tile server
     callbook.py        HamQTH / QRZ.com XML lookups with a local cache
+    ha.py              Home Assistant state document + read-only token
     qsl.py             paper QSL workflow (ADIF QSLSDATE/QSLRDATE in extra_adif), labels
     touchstone.py      .s1p/.s2p parsing, SWR summary, SVG plot
     filestore.py       content-addressed blob store, text extraction
@@ -242,6 +243,10 @@ in `extra_adif`, labels) · ~~offline map tiles~~ (done: `services/tiles.py`, `/
 MBTiles → cache → tile server; no bulk download, per OSM policy) · ADX (XML ADIF) · repeater list importers
 (~~RepeaterBook, IK2ANE-style CSV~~ done: `services/repeater_lists.py`, header guessing
 + editable mapping) · photo thumbnails.
+
+**Home Assistant** (`NEXT_FEATURE.md`): phase 1 done, `services/ha.py` + `/api/ha/state`
+with its own read-only token (hash stored, never synced). Phase 2 (MQTT, push) waits for a
+real-time source (CAT / WSJT-X on the PC): until then the hub learns of QSOs at sync time.
 
 **Phase 3**: LoTW/eQSL/ClubLog/QRZ upload · WSJT-X UDP logging · CAT via flrig/Hamlib ·
 awards · contest mode with Cabrillo · translations (Italian/French).

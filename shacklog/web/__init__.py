@@ -45,6 +45,7 @@ VIEW_MODULES = [
     "settings",
     "help",
     "api_sync",
+    "api_ha",
 ]
 
 #: Endpoints allowed before first-run setup is complete.

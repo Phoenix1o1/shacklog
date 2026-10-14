@@ -29,6 +29,12 @@ changes; ShackLog upgrades the database by itself at the next start, after a bac
   already seen (500 MB by default, oldest dropped first), then from OpenStreetMap. With
   no internet, cached and offline areas still show. Tile server can be changed.
 
+- **Home Assistant** (*Settings › General*): a read-only token and `/api/ha/state` with
+  QSOs today/total, last QSO, last heard, countries, last backup, each PC's last sync,
+  *on the air* and *update available*; a ready-to-paste `configuration.yaml` block.
+  Phase 1 of `NEXT_FEATURE.md` (REST); MQTT is left for when live sources (CAT,
+  WSJT-X) exist.
+
 **Changed**
 - *Proxmox container creator*: every answer is checked as you type it and asked again
   with the reason when it's wrong: IPv4 address and prefix (not the network or broadcast

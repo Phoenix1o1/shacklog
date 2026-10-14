@@ -666,3 +666,6 @@ code.path, .facts dd { overflow-wrap: anywhere; }
   @page { size: A4; margin: 0; }
   .no-print { display: none; }
 }
+
+/* ---------- code blocks (Home Assistant YAML, server logs) ---------- */
+pre.code { overflow-x: auto; max-width: 100%; }
